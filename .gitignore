@@ -5,3 +5,4 @@ __pycache__/
 .local/
 shot_*.png
 *.tmp
+tools/*.txt

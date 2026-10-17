@@ -4,11 +4,13 @@
 
 import * as THREE from 'three';
 import { createGasGiantTexture, createRingsTexture, createMoonTexture, createSunMaterial } from './celestial.js';
+import { DerelictWreck } from './wreck.js';
+import { getZoneLighting } from './wreckzones.js';
 
 export const SUN_DIR = new THREE.Vector3(0.68, 0.45, -0.58).normalize();
 
 export class SpaceWorld {
-  constructor(scene, renderer, camera) {
+  constructor(scene, renderer, camera, track = null) {
     this.name = 'space';
     this.scene = scene;
     this.renderer = renderer;
@@ -16,9 +18,10 @@ export class SpaceWorld {
     this.sunDir = SUN_DIR.clone();
     this.ready = false;
     this.startIndex = 0;
-    this.track = null;
+    this.track = track;
     this.minimap = null;
     this.race = null;
+    this.derelict = null;
 
     // Atmospheric & look parameters
     this.exposure = 1.0;
@@ -40,7 +43,8 @@ export class SpaceWorld {
 
     // Sky Backdrop Scene & Camera (rendered first in its own depth range 50m to 200,000m)
     this.sky = new THREE.Scene();
-    this.skyCam = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 50, 300000);
+    const aspect = typeof window !== 'undefined' ? window.innerWidth / window.innerHeight : 16 / 9;
+    this.skyCam = new THREE.PerspectiveCamera(65, aspect, 50, 300000);
 
     // Shadow cascades
     this._initLights();
@@ -48,7 +52,18 @@ export class SpaceWorld {
     // Celestial Bodies in sky scene
     this._initBackdrop();
 
+    if (this.track) {
+      this.attachTrack(this.track);
+    }
+
     this.ready = true;
+  }
+
+  attachTrack(track) {
+    this.track = track;
+    if (!this.derelict && this.scene && this.track) {
+      this.derelict = new DerelictWreck(this.scene, this.track);
+    }
   }
 
   _initLights() {
@@ -78,8 +93,8 @@ export class SpaceWorld {
     this.scene.add(this.sunFar);
 
     // Faint warm planet-shine & starlight ambient
-    const ambient = new THREE.AmbientLight(0x182438, 0.6);
-    this.scene.add(ambient);
+    this.ambient = new THREE.AmbientLight(0x182438, 0.6);
+    this.scene.add(this.ambient);
 
     // Fixed 3 point lights moved to nearest gantries (avoids mid-race shader recompiles)
     this.lamps = [
@@ -154,30 +169,32 @@ export class SpaceWorld {
     this.sky.add(this.sunMesh);
 
     // Sun Corona Glow Sprite
-    const coronaCanvas = document.createElement('canvas');
-    coronaCanvas.width = 256;
-    coronaCanvas.height = 256;
-    const cctx = coronaCanvas.getContext('2d');
-    const grad = cctx.createRadialGradient(128, 128, 20, 128, 128, 128);
-    grad.addColorStop(0.0, 'rgba(255, 250, 235, 1.0)');
-    grad.addColorStop(0.2, 'rgba(255, 190, 80, 0.6)');
-    grad.addColorStop(0.5, 'rgba(255, 100, 20, 0.2)');
-    grad.addColorStop(1.0, 'rgba(255, 60, 0, 0.0)');
-    cctx.fillStyle = grad;
-    cctx.fillRect(0, 0, 256, 256);
-    const coronaTex = new THREE.CanvasTexture(coronaCanvas);
+    if (typeof document !== 'undefined') {
+      const coronaCanvas = document.createElement('canvas');
+      coronaCanvas.width = 256;
+      coronaCanvas.height = 256;
+      const cctx = coronaCanvas.getContext('2d');
+      const grad = cctx.createRadialGradient(128, 128, 20, 128, 128, 128);
+      grad.addColorStop(0.0, 'rgba(255, 250, 235, 1.0)');
+      grad.addColorStop(0.2, 'rgba(255, 190, 80, 0.6)');
+      grad.addColorStop(0.5, 'rgba(255, 100, 20, 0.2)');
+      grad.addColorStop(1.0, 'rgba(255, 60, 0, 0.0)');
+      cctx.fillStyle = grad;
+      cctx.fillRect(0, 0, 256, 256);
+      const coronaTex = new THREE.CanvasTexture(coronaCanvas);
 
-    const coronaMat = new THREE.SpriteMaterial({
-      map: coronaTex,
-      color: 0xffeedd,
-      blending: THREE.AdditiveBlending,
-      transparent: true,
-      depthWrite: false
-    });
-    const coronaSprite = new THREE.Sprite(coronaMat);
-    coronaSprite.scale.set(16000, 16000, 1);
-    coronaSprite.position.copy(sunPos);
-    this.sky.add(coronaSprite);
+      const coronaMat = new THREE.SpriteMaterial({
+        map: coronaTex,
+        color: 0xffeedd,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false
+      });
+      const coronaSprite = new THREE.Sprite(coronaMat);
+      coronaSprite.scale.set(16000, 16000, 1);
+      coronaSprite.position.copy(sunPos);
+      this.sky.add(coronaSprite);
+    }
 
     // 3. Ringed Gas Giant
     const planetDist = 95000;
@@ -241,7 +258,7 @@ export class SpaceWorld {
     this.sun.target.updateMatrixWorld();
   }
 
-  update(dt, camera, shipPos, s, renderer) {
+  update(dt, camera, shipPos, s = 0, renderer = null) {
     // Update live boiling sun granulation
     if (this.sunMat && this.sunMat.uniforms.uTime) {
       this.sunMat.uniforms.uTime.value += dt;
@@ -258,6 +275,20 @@ export class SpaceWorld {
 
     if (shipPos) {
       this.follow(shipPos, camera);
+    }
+
+    // Update Derelict Colossus simulation
+    if (this.derelict) {
+      this.derelict.update(dt, camera, shipPos, s);
+    }
+
+    // Dynamic chamber lighting and sun occlusion along the derelict Colossus
+    const lighting = getZoneLighting(s);
+    if (this.sun) {
+      this.sun.intensity = THREE.MathUtils.lerp(3.2, 0.05, lighting.sunOcclusion);
+    }
+    if (this.ambient) {
+      this.ambient.intensity = THREE.MathUtils.lerp(0.6, 0.12, lighting.ambientDarkness);
     }
   }
 

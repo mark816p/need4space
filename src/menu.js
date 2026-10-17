@@ -272,9 +272,9 @@ export class MenuManager {
           <div class="circuit-card ${curCircuit === 'space' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-cyan); border-radius: 6px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">ORBITAL STATION</span>
-              <span style="font-family: Rajdhani, sans-serif; color: var(--accent-cyan); font-weight: 700;">11.6 KM</span>
+              <span style="font-family: Rajdhani, sans-serif; color: var(--accent-cyan); font-weight: 700;">13.6 KM</span>
             </div>
-            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">The high-altitude space circuit orbiting gas giant Solaris IV. Mag-lock sweepers, vertical loop, and asteroid slalom.</p>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">The high-altitude space circuit orbiting gas giant Solaris IV. Threads through the Titan-class derelict Colossus with glowing reactors and hull fracture jump.</p>
             <button class="btn btn-primary" data-circuit="space" style="width: 100%;">${curCircuit === 'space' ? 'CURRENT CIRCUIT' : 'ENGAGE SPACE'}</button>
           </div>
           <div class="circuit-card ${curCircuit === 'forest' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(0, 255, 136, 0.08); border: 1px solid var(--accent-green); border-radius: 6px;">

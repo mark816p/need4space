@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import { damp, clamp } from './noise.js';
 import { TRACK_W, FIELD_H } from './track.js';
 import { HANDLING, PERKS } from './ships.js';
+import { getChamberDarkness } from './wreckzones.js';
 
 // Module-level scratch objects to prevent allocations in 120 Hz loop
 const _pCurr = new THREE.Vector3();
@@ -327,7 +328,8 @@ export class TrackRacer {
         boost: this.isBoosting,
         turn: steer,
         speed: this.vs,
-        accS: this.vs
+        accS: this.vs,
+        chamberDarkness: getChamberDarkness(this.s)
       });
     }
   }

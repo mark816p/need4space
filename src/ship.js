@@ -263,6 +263,12 @@ export class Ship {
     this.shakeOffset.y = damp(this.shakeOffset.y, 0, 9.0, dt);
     this.shakeOffset.z = damp(this.shakeOffset.z, 0, 9.0, dt);
 
+    // 6. Dynamic Headlight adaptation in dark chambers / tunnels
+    const chamberDarkness = state.chamberDarkness ?? 0;
+    const targetHeadlight = 1.8 + chamberDarkness * 4.8;
+    this.headlight.intensity = damp(this.headlight.intensity, targetHeadlight, 4.0, dt);
+    this.headlight.distance = 300 + chamberDarkness * 120;
+
     // Coordinated visual turn bank into the corner
     const turnBank = -turn * 0.22;
     this.visual.rotation.set(

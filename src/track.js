@@ -8,7 +8,7 @@ export { TrackRacer } from './trackracer.js';
 
 export const STEP = 2.0;           // 2 m frame spacing along track
 export const TRACK_W_V1 = 44.0;    // 44 m road width in v1.0 (expanded to 56 m in P4)
-export let TRACK_W = TRACK_W_V1;
+export let TRACK_W = 56.0;         // 56 m road width ("the roads are a bit bigger in redout")
 export const FIELD_H = 5.0;        // 5.0 m energy barrier height above deck
 export const WALL_H = 1.2;         // 1.2 m solid barrier height
 export const WALL_THICK = 0.7;     // 0.7 m wall thickness
@@ -409,22 +409,32 @@ export class Track {
   }
 }
 
-// Factory function for the Space Circuit (~11.6 km before the derelict expansion in P4/P7)
+// Factory function for the Space Circuit (~13.6 km expanded in P4 to thread the derelict Colossus)
 export function createSpaceTrack() {
-  const numPoints = 32;
+  const numPoints = 40;
   const controlPoints = [];
-  const R_BASE = 1750.0;
+  const R_BASE = 2022.0;
   const R_LOOP = 80.0;
+  const excursionScale = 680.0;
 
   for (let i = 0; i < numPoints; i++) {
     const theta = (i / numPoints) * Math.PI * 2.0;
     // Radius modulation for realistic circuit layout with long straights and tech corners
-    const r = R_BASE + 320.0 * Math.cos(theta * 2.0) - 180.0 * Math.sin(theta * 3.0);
-    const x = Math.sin(theta) * r;
-    const z = Math.cos(theta) * r;
+    let r = R_BASE + 320.0 * Math.cos(theta * 2.0) - 180.0 * Math.sin(theta * 3.0);
+    let x = Math.sin(theta) * r;
+    let z = Math.cos(theta) * r;
     let y = Math.sin(theta * 2.0) * 45.0 + Math.cos(theta * 4.0) * 25.0;
     let bank = 0;
     let name = `Sector ${i + 1}`;
+
+    // Smooth sinusoidal envelope excursion threading through the Titan-class derelict Colossus
+    if (i >= 26 && i <= 36) {
+      const frac = (i - 26) / 10.0;
+      const colossusEnvelope = Math.sin(frac * Math.PI) ** 1.8;
+      x -= excursionScale * colossusEnvelope;
+      y += 18.0 * Math.sin(frac * Math.PI);
+      name = `Derelict Sector ${i - 25}`;
+    }
 
     // Specific track features mapped to continuous sectors
     if (i === 0) {
@@ -462,12 +472,24 @@ export function createSpaceTrack() {
     } else if (i === 23) {
       name = 'Jump Gap 2';
       bank = 0;
-    } else if (i >= 24 && i <= 28) {
-      // Barrel Roll 2: 360 deg continuous bank spread over 4 sectors
+    } else if (i >= 24 && i <= 26) {
+      // Barrel Roll 2: 360 deg continuous bank spread over 2 sectors
       name = 'Barrel Roll 2';
-      const rollFrac = (i - 24) / 4.0;
+      const rollFrac = (i - 24) / 2.0;
       bank = rollFrac * 360.0;
-    } else if (i >= 29) {
+    } else if (i >= 27 && i <= 36) {
+      // Inside derelict Colossus
+      if (i === 27) name = 'Derelict Colossus Approach';
+      else if (i === 28) { name = 'Colossal Engine Bell'; bank = 8; }
+      else if (i === 29) name = 'Antimatter Turbopump Throat';
+      else if (i === 30) name = 'Reactor Hall Core 1';
+      else if (i === 31) name = 'Reactor Hall Core 2 (The Break Approach)';
+      else if (i === 32) { name = 'The Break (Hull Fracture Leap)'; bank = -10; }
+      else if (i === 33) { name = 'Forward Cargo Hangar'; bank = -6; }
+      else if (i === 34) name = 'Hangar Backbone Ribs';
+      else if (i === 35) { name = 'Hull Breach Exit & Sensor Boom'; bank = 18; }
+      else if (i === 36) name = 'Wreck Graveyard Sweeper';
+    } else if (i >= 37) {
       name = 'Grand Home Sweeper';
       bank = 28;
     }
@@ -479,37 +501,42 @@ export function createSpaceTrack() {
   const features = {
     name: 'space',
     gaps: [
-      [1800, 1950],   // Jump Gap 1 (150 m leap)
-      [8600, 8750],   // Jump Gap 2 (150 m leap)
+      [1650, 1800],   // Jump Gap 1 (150 m leap)
+      [7500, 7650],   // Jump Gap 2 (150 m leap)
+      [10520, 10640], // The Break (120 m vacuum leap across derelict fracture)
     ],
     loops: [
-      [2200, 2700],   // Vertical Loop (~500 m circumference)
+      [2050, 2600],   // Vertical Loop (~550 m circumference)
     ],
     tunnels: [
-      [7100, 8300],   // Meteorite Cave Glass Tunnel (1200 m)
+      [6400, 7400],   // Meteorite Cave Glass Tunnel (1000 m)
+      [9350, 10520],  // Derelict Engine Bell & Reactor Hall (1170 m)
+      [10640, 11400], // Derelict Forward Cargo Hangar (760 m)
     ],
     pads: [
       // Boost pads placed along key acceleration zones
       { s: 400, x: 0, kind: 'boost' },
       { s: 1550, x: 0, kind: 'boost' },   // Pre-jump pad 1
-      { s: 2100, x: 0, kind: 'boost' },   // Pre-loop boost
+      { s: 1980, x: 0, kind: 'boost' },   // Pre-loop boost
       { s: 3600, x: 6, kind: 'boost' },
       { s: 5200, x: -8, kind: 'boost' },
-      { s: 6900, x: 0, kind: 'boost' },   // Cave entry pad
-      { s: 8400, x: 0, kind: 'boost' },   // Pre-jump pad 2
-      { s: 9800, x: 0, kind: 'boost' },
-      { s: 10800, x: 0, kind: 'boost' },  // Final straight pad
+      { s: 6300, x: 0, kind: 'boost' },   // Cave entry pad
+      { s: 7400, x: 0, kind: 'boost' },   // Pre-jump pad 2
+      { s: 9200, x: 0, kind: 'boost' },   // Pre-derelict boost pad
+      { s: 10480, x: 0, kind: 'boost' },  // Boost pad between halves (The Break)
+      { s: 12400, x: 0, kind: 'boost' },  // Final straight pad
     ],
     gates: [
       // Light gates (color rings)
       { s: 300, color: 0x00d2ff },
-      { s: 1700, color: 0xffaa00 },
-      { s: 2800, color: 0x00ff88 },
+      { s: 1600, color: 0xffaa00 },
+      { s: 2700, color: 0x00ff88 },
       { s: 4200, color: 0xa855f7 },
-      { s: 6800, color: 0x00d2ff },
-      { s: 8350, color: 0xff3366 },
-      { s: 9500, color: 0x00ff88 },
-      { s: 10600, color: 0x00d2ff },
+      { s: 6250, color: 0x00d2ff },
+      { s: 7450, color: 0xff3366 },
+      { s: 9250, color: 0xff8800 }, // Orange gate before the Colossus
+      { s: 11450, color: 0x00ff88 }, // Exit breach gate
+      { s: 12500, color: 0x00d2ff },
     ]
   };
 

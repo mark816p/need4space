@@ -210,7 +210,7 @@ export async function loadCircuit(name = 'space') {
   } else {
     app.track = createSpaceTrack();
     app.trackMesh = app.track.meshes(app.scene);
-    app.world = new SpaceWorld(app.scene, app.renderer, app.camera);
+    app.world = new SpaceWorld(app.scene, app.renderer, app.camera, app.track);
   }
 
   const diff = app.settings ? app.settings.get('difficulty') : 'hard';
@@ -287,14 +287,14 @@ async function boot() {
   await nextFrame();
   app.post = new PostPipeline(app.renderer, app.scene, app.camera);
 
-  status('Creating Space Environment...', 30);
-  await nextFrame();
-  app.world = new SpaceWorld(app.scene, app.renderer, app.camera);
-
-  status('Building Space Circuit Meshes...', 65);
+  status('Building Space Circuit Meshes...', 40);
   await nextFrame();
   app.track = createSpaceTrack();
   app.trackMesh = app.track.meshes(app.scene);
+
+  status('Creating Space Environment & Derelict Colossus...', 65);
+  await nextFrame();
+  app.world = new SpaceWorld(app.scene, app.renderer, app.camera, app.track);
 
   status('Initializing Race & Fleet...', 85);
   await nextFrame();
@@ -511,7 +511,9 @@ async function boot() {
 
     if (app.running && app.renderer) {
       if (app.world) {
-        app.world.update(dt, app.camera, null, 0, app.renderer);
+        const shipPos = app.playerRacer ? app.playerRacer.pos : (app.ship ? app.ship.root.position : null);
+        const shipS = app.playerRacer ? app.playerRacer.s : 0;
+        app.world.update(dt, app.camera, shipPos, shipS, app.renderer);
         app.world.preRender(app.renderer);
       }
 

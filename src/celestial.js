@@ -7,6 +7,13 @@ import { noise2, fbm } from './noise.js';
 
 // Procedural gas-giant texture (zonal jet streams, turbulent eddies, Great Storm)
 export function createGasGiantTexture(width = 2048, height = 1024) {
+  if (typeof document === 'undefined') {
+    const dummy = new Uint8Array(16 * 4);
+    dummy.fill(200);
+    const dTex = new THREE.DataTexture(dummy, 4, 4);
+    dTex.needsUpdate = true;
+    return dTex;
+  }
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -91,6 +98,13 @@ export function createGasGiantTexture(width = 2048, height = 1024) {
 
 // Procedural Saturn-like rings texture with Cassini division
 export function createRingsTexture(width = 1024, height = 64) {
+  if (typeof document === 'undefined') {
+    const dummy = new Uint8Array(16 * 4);
+    dummy.fill(220);
+    const dTex = new THREE.DataTexture(dummy, 4, 4);
+    dTex.needsUpdate = true;
+    return dTex;
+  }
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -144,6 +158,13 @@ export function createRingsTexture(width = 1024, height = 64) {
 
 // Procedural cratered moon texture
 export function createMoonTexture(width = 1024, height = 512) {
+  if (typeof document === 'undefined') {
+    const dummy = new Uint8Array(16 * 4);
+    dummy.fill(160);
+    const dTex = new THREE.DataTexture(dummy, 4, 4);
+    dTex.needsUpdate = true;
+    return dTex;
+  }
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;

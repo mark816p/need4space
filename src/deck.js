@@ -1,6 +1,7 @@
 // src/deck.js — Procedural deck, kerb, and energy-barrier materials
 // Why: "the road had like a lot of straight lines" -> periodic noise in metres, round pebbles,
 // worn paint, plates with bevelled seams and rivets, polished racing lanes
+// Widen road 44 -> 56 m (TRACK_W = 56): room for five Feathers (10.3 m) abreast and multiple lines
 
 import * as THREE from 'three';
 import { noise2, fbm } from './noise.js';
@@ -11,6 +12,15 @@ let _padMaterial = null;
 let _kerbMaterial = null;
 
 export function createDeckTextures(width = 1024, height = 1024) {
+  if (typeof document === 'undefined') {
+    // Headless DOM guard: construct dummy 4x4 DataTextures
+    const dummyData = new Uint8Array(16 * 4);
+    dummyData.fill(128);
+    const dTex = new THREE.DataTexture(dummyData, 4, 4);
+    dTex.needsUpdate = true;
+    return { diffuse: dTex, normal: dTex, roughness: dTex };
+  }
+
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -34,54 +44,92 @@ export function createDeckTextures(width = 1024, height = 1024) {
   const rImgData = rCtx.createImageData(width, height);
   const rData = rImgData.data;
 
+  // 56m road width layout:
+  // 5 distinct lanes across width (u = 0.1, 0.3, 0.5, 0.7, 0.9)
+  // Longitudinal seams between plates at u = 0.2, 0.4, 0.6, 0.8
+  // Transverse seams every 40m along length (v % 0.25 == 0)
+  const laneCenters = [0.1, 0.3, 0.5, 0.7, 0.9];
+  const longSeams = [0.2, 0.4, 0.6, 0.8];
+
   for (let y = 0; y < height; y++) {
     const v = y / height;
-    // Seam lines every 0.25 (simulates 40m plates)
-    const seamV = Math.abs((v % 0.25) - 0.125) * 8.0;
-    const isSeam = seamV < 0.04;
+    const transverseSeamDist = Math.abs((v % 0.25) - 0.125) * 8.0;
+    const isTransverseSeam = transverseSeamDist < 0.045;
 
     for (let x = 0; x < width; x++) {
       const u = x / width;
-      // High-traffic racing groove in the middle lanes (u ~ 0.35 - 0.65)
-      const centerDist = Math.abs(u - 0.5) * 2.0;
-      const raceGroove = Math.exp(-centerDist * centerDist * 3.5);
 
-      // Aggregate pebble grit noise
+      // 1. Five polished racing lines (room for 5 Feathers abreast)
+      let minLaneDist = 1.0;
+      for (let l = 0; l < laneCenters.length; l++) {
+        const d = Math.abs(u - laneCenters[l]);
+        if (d < minLaneDist) minLaneDist = d;
+      }
+      // Polished groove in each lane
+      const laneGroove = Math.exp(-minLaneDist * minLaneDist * 160.0);
+
+      // 2. Longitudinal and transverse plate seams
+      let minSeamDist = 1.0;
+      for (let s = 0; s < longSeams.length; s++) {
+        const d = Math.abs(u - longSeams[s]);
+        if (d < minSeamDist) minSeamDist = d;
+      }
+      const isLongSeam = minSeamDist < 0.008;
+      const isSeam = isTransverseSeam || isLongSeam;
+
+      // 3. Rivets along plate edges
+      const isRivetLine = (minSeamDist > 0.012 && minSeamDist < 0.02) || (transverseSeamDist > 0.06 && transverseSeamDist < 0.09);
+      const rivetPhase = Math.sin(u * 120.0 * Math.PI) * Math.sin(v * 160.0 * Math.PI);
+      const isRivet = isRivetLine && rivetPhase > 0.82;
+
+      // 4. Aggregate noise and worn paint
       const grit = fbm(u * 64.0, v * 64.0, 3, 2.0, 0.5);
       const microGrit = noise2(u * 256.0, v * 256.0);
+      const wornPaint = noise2(u * 16.0, v * 16.0);
 
-      // Base composite tarmac / nano-ceramic deck plate
-      let lum = 48 + grit * 26 + microGrit * 10;
-      // Dark rubbered-in racing groove
-      lum = lum * (1.0 - raceGroove * 0.35);
+      // Base carbon-ceramic deck plate
+      let lum = 46 + grit * 28 + microGrit * 10;
+      if (wornPaint > 0.4) lum += 12; // Weathered markings / bleached resin
 
-      // Bevelled plate seam
-      if (isSeam) {
-        lum *= 0.45;
-      }
+      // Dark rubbered racing lanes
+      lum = lum * (1.0 - laneGroove * 0.32);
+
+      // Bevelled seams
+      if (isSeam) lum *= 0.42;
+      if (isRivet) lum += 35; // Bright metallic rivet head
 
       const idx = (y * width + x) * 4;
 
-      // Diffuse Color (dark carbon-ceramic with subtle cyan tint)
-      data[idx] = Math.max(12, Math.min(180, lum * 0.95));
-      data[idx + 1] = Math.max(15, Math.min(195, lum * 1.02));
-      data[idx + 2] = Math.max(20, Math.min(215, lum * 1.12));
+      // Diffuse Color (high-durability titanium-ceramic composite)
+      data[idx] = Math.max(12, Math.min(190, lum * 0.94));
+      data[idx + 1] = Math.max(15, Math.min(205, lum * 1.02));
+      data[idx + 2] = Math.max(20, Math.min(225, lum * 1.14));
       data[idx + 3] = 255;
 
-      // Normal Map (perturbations from grit and bevelled seams)
+      // Normal Map (perturbations from pebble grit, bevelled seams, and rivets)
       let nx = (noise2(u * 128.0 + 1.0, v * 128.0) - noise2(u * 128.0 - 1.0, v * 128.0)) * 40.0;
       let ny = (noise2(u * 128.0, v * 128.0 + 1.0) - noise2(u * 128.0, v * 128.0 - 1.0)) * 40.0;
-      if (isSeam) {
-        ny += (v % 0.25 < 0.125 ? -60 : 60);
+
+      if (isTransverseSeam) {
+        ny += ((v % 0.25) < 0.125 ? -60 : 60);
       }
+      if (isLongSeam) {
+        nx += ((u % 0.2) < 0.1 ? -60 : 60);
+      }
+      if (isRivet) {
+        nx += (rivetPhase > 0 ? 45 : -45);
+        ny += (rivetPhase > 0 ? 45 : -45);
+      }
+
       nData[idx] = Math.max(0, Math.min(255, 128 + nx));
       nData[idx + 1] = Math.max(0, Math.min(255, 128 + ny));
       nData[idx + 2] = 240;
       nData[idx + 3] = 255;
 
-      // Roughness (rubbered racing groove is smoother/polished; seams and edges rougher)
-      let rough = 0.82 - raceGroove * 0.45 + (1.0 - grit) * 0.15;
-      if (isSeam) rough = 0.95;
+      // Roughness (rubbered racing lanes are slick; seams and grit are rougher)
+      let rough = 0.84 - laneGroove * 0.46 + (1.0 - grit) * 0.12;
+      if (isSeam) rough = 0.96;
+      if (isRivet) rough = 0.35; // Specular reflective rivets
       rData[idx] = Math.max(0, Math.min(255, rough * 255));
       rData[idx + 1] = rData[idx];
       rData[idx + 2] = rData[idx];
@@ -124,6 +172,10 @@ export function getDeckMaterial() {
 
 export function getKerbMaterial() {
   if (_kerbMaterial) return _kerbMaterial;
+  if (typeof document === 'undefined') {
+    _kerbMaterial = new THREE.MeshStandardMaterial({ color: 0xff2233 });
+    return _kerbMaterial;
+  }
   // Red and white hazard alternating kerb texture
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -162,6 +214,10 @@ export function getBarrierMaterial() {
 
 export function getBoostPadMaterial() {
   if (_padMaterial) return _padMaterial;
+  if (typeof document === 'undefined') {
+    _padMaterial = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+    return _padMaterial;
+  }
   // Dynamic glowing chevron arrow for boost pads
   const canvas = document.createElement('canvas');
   canvas.width = 256;
