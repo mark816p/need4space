@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { clamp, lerp } from './noise.js';
 import { buildTrackMeshes } from './trackmesh.js';
+export { TrackRacer } from './trackracer.js';
 
 export const STEP = 2.0;           // 2 m frame spacing along track
 export const TRACK_W_V1 = 44.0;    // 44 m road width in v1.0 (expanded to 56 m in P4)

@@ -7,7 +7,7 @@
   - [x] P0.3 Track class (track.js)
   - [x] P0.4 Track meshes, deck and hull textures (deck.js, hull.js, rock.js)
   - [x] P0.5 Ship + free flight (ship.js, shipmodels.js, flight.js)
-  - [ ] P0.6 TrackRacer physics (track.js)
+  - [x] P0.6 TrackRacer physics (track.js)
   - [ ] P0.7 Race + AI (race.js)
   - [ ] P0.8 Post pipeline (post.js, look.js, composer)
   - [ ] P0.9 Audio and music (audio.js, music.js)

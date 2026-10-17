@@ -3,8 +3,9 @@
 
 import * as THREE from 'three';
 import { CURRENT_VERSION } from './changelog.js';
+import { clamp } from './noise.js';
 import { SpaceWorld } from './space.js';
-import { createSpaceTrack } from './track.js';
+import { createSpaceTrack, TrackRacer } from './track.js';
 import { Ship } from './ship.js';
 import { FreeFlight } from './flight.js';
 import { InputHandler } from './input.js';
@@ -80,6 +81,9 @@ window.__feather = {
       shipReady: !!app.ship,
       shipPower: app.ship ? app.ship.power : 0,
       shipSpeed: app.flight ? app.flight.speed : 0,
+      racerSpeed: app.playerRacer ? app.playerRacer.vs : 0,
+      racerProgress: app.playerRacer ? app.playerRacer.progress : 0,
+      racerLap: app.playerRacer ? app.playerRacer.lap : 0,
     };
   },
   async advance(seconds) {
@@ -88,6 +92,9 @@ window.__feather = {
     for (let i = 0; i < steps; i++) {
       if (app.race) {
         app.race.step(dt);
+      } else if (app.playerRacer && app.mode === 'race') {
+        const steerCorr = clamp(-app.playerRacer.x * 0.08, -0.6, 0.6);
+        app.playerRacer.step(dt, { throttle: 1.0, steer: steerCorr });
       } else if (app.flight) {
         app.flight.step(dt, { throttle: 1.0 });
       }
@@ -162,8 +169,13 @@ async function boot() {
   app.ship = new Ship('feather');
   app.scene.add(app.ship.root);
   app.ship.attachTrails(app.scene);
+
+  // Initialize both free flight and track racer models
   app.flight = new FreeFlight(app.ship, app.track);
   app.flight.respawnOntoTrack(app.track, 10.0);
+
+  app.playerRacer = new TrackRacer(app.track, app.ship, { isPlayer: true, difficulty: 'hard' });
+  app.playerRacer.reset(0, 0, 0);
 
   status('Systems Flight Ready', 100);
   await nextFrame();
@@ -195,19 +207,43 @@ async function boot() {
       app.mode = (app.mode === 'race') ? 'free' : 'race';
       const elMode = document.getElementById('hud-mode');
       if (elMode) elMode.textContent = app.mode === 'free' ? 'Free flight' : 'Race';
+      if (app.mode === 'race' && app.playerRacer) {
+        app.playerRacer.reset(app.playerRacer.s, 0, 60.0);
+      }
     }
     if (app.input && app.input.consumeTrigger('respawn')) {
-      if (app.flight && app.track) app.flight.respawnOntoTrack(app.track, 0);
+      if (app.mode === 'free' && app.flight && app.track) {
+        app.flight.respawnOntoTrack(app.track, 0);
+      } else if (app.mode === 'race' && app.playerRacer) {
+        app.playerRacer.reset(app.playerRacer.s, 0, 60.0);
+      }
     }
     if (app.input && app.input.consumeTrigger('toggleCanopy')) {
       if (app.ship) app.ship.toggleCanopy();
     }
 
-    // Free flight arcade mode
-    if (app.mode === 'free' && app.flight) {
+    // Active Simulation
+    if (app.mode === 'race' && app.playerRacer) {
+      app.playerRacer.step(dt, input);
+
+      // Deck-aware chase camera tracking player racer
+      const camDist = 14.0 + (app.playerRacer.vs / app.playerRacer.handling.topSpeed) * 4.0;
+      const camHeight = 3.6 + (app.playerRacer.isBoosting ? 0.8 : 0);
+      const trackFrame = app.playerRacer.frame;
+      const fwd = trackFrame.T || new THREE.Vector3(0, 0, -1);
+      const up = trackFrame.U || new THREE.Vector3(0, 1, 0);
+
+      const chasePos = _vCamTarget.copy(app.playerRacer.pos)
+        .addScaledVector(fwd, -camDist)
+        .addScaledVector(up, camHeight);
+
+      app.camera.position.lerp(chasePos, 0.22);
+      app.camera.up.slerp(up, 0.2);
+      app.camera.lookAt(app.playerRacer.pos.x, app.playerRacer.pos.y + 1.2, app.playerRacer.pos.z);
+    } else if (app.mode === 'free' && app.flight) {
       app.flight.step(dt, input);
 
-      // Chase camera tracking the ship
+      // Chase camera tracking free flight ship
       const forwardDir = app.flight.vel.length() > 2.0
         ? app.flight.vel.clone().normalize()
         : new THREE.Vector3(0, 0, -1).applyQuaternion(app.ship.root.quaternion);
@@ -215,6 +251,19 @@ async function boot() {
       const chasePos = _vCamTarget.copy(app.ship.root.position)
         .addScaledVector(forwardDir, -16.0)
         .addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(app.ship.root.quaternion), 4.5);
+
+      app.camera.position.lerp(chasePos, 0.18);
+      app.camera.up.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
+      app.camera.lookAt(app.ship.root.position.x, app.ship.root.position.y + 1.2, app.ship.root.position.z);
+    } else if (!app.playerRacer && app.track) {
+      // Spectator flight along track
+      const s = (now * 0.065) % app.track.length;
+      app.track.frame(s, _fCam);
+      app.track.frame((s + 45.0) % app.track.length, _fLook);
+      app.camera.position.copy(_fCam.pos).addScaledVector(_fCam.U, 7.5).addScaledVector(_fCam.R, Math.sin(now * 0.0008) * 8.0);
+      app.camera.up.copy(_fCam.U);
+      app.camera.lookAt(_fLook.pos.x, _fLook.pos.y + 2.0, _fLook.pos.z);
+    }
 
       app.camera.position.lerp(chasePos, 0.18);
       app.camera.up.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
