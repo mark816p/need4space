@@ -13,6 +13,11 @@ import { Race } from './race.js';
 import { PostPipeline } from './post.js';
 import { AudioManager } from './audio.js';
 import { ProceduralMusic } from './music.js';
+import { CameraController } from './camera.js';
+import { HUDController } from './hud.js';
+import { FXSystem } from './fx.js';
+import { SettingsManager } from './settings.js';
+import { MenuManager } from './menu.js';
 
 // Global state container
 export const app = {
@@ -20,6 +25,7 @@ export const app = {
   renderer: null,
   scene: null,
   camera: null,
+  cameraController: null,
   world: null,
   track: null,
   trackMesh: null,
@@ -28,6 +34,10 @@ export const app = {
   input: null,
   race: null,
   playerRacer: null,
+  hud: null,
+  fx: null,
+  settings: null,
+  menu: null,
   post: null,
   audio: null,
   music: null,
@@ -202,26 +212,49 @@ async function boot() {
   app.audio = new AudioManager();
   app.music = new ProceduralMusic(app.audio);
 
-  // Hook player racer audio feedback events
+  // Hook player racer audio and visual feedback events
   if (app.playerRacer) {
     app.playerRacer.on('boost_start', () => {
       if (app.audio) app.audio.playBoost();
       if (app.music) app.music.triggerDuck(0.65);
+      if (app.fx) app.fx.flash('boost');
+      if (app.cameraController) app.cameraController.addTrauma(0.25);
     });
     app.playerRacer.on('pad_hit', () => {
       if (app.audio) app.audio.playBoost();
       if (app.music) app.music.triggerDuck(0.65);
+      if (app.fx) app.fx.flash('pad');
+      if (app.cameraController) app.cameraController.addTrauma(0.35);
     });
     app.playerRacer.on('jump_launch', () => {
       if (app.audio) app.audio.playJumpLaunch();
     });
     app.playerRacer.on('landing', () => {
       if (app.audio) app.audio.playJumpLand();
+      if (app.cameraController) app.cameraController.addTrauma(0.4);
     });
     app.playerRacer.on('wall_hit', (e) => {
       if (app.audio) app.audio.playWallScrape(e.side, e.speed);
+      if (app.fx) {
+        app.fx.flash('impact');
+        if (app.playerRacer.pos && app.playerRacer.frame.R) {
+          const contactSide = (e.side >= 0 ? 1 : -1);
+          const contactPos = app.playerRacer.pos.clone().addScaledVector(app.playerRacer.frame.R, contactSide * 4.5);
+          app.fx.emitSparks(contactPos, app.playerRacer.frame.R, 25);
+        }
+      }
+      if (app.cameraController) app.cameraController.addTrauma(0.5);
     });
   }
+
+  status('Initializing UI & Subsystems...', 98);
+  await nextFrame();
+  app.settings = new SettingsManager();
+  app.cameraController = new CameraController(app.camera, { fov: app.settings.get('fov') });
+  app.hud = new HUDController(app.track, app.race);
+  app.fx = new FXSystem(app.scene, app.camera);
+  app.menu = new MenuManager(app);
+  app.settings.apply(app);
 
   status('Systems Flight Ready', 100);
   await nextFrame();
@@ -279,6 +312,9 @@ async function boot() {
     if (app.input && app.input.consumeTrigger('toggleCanopy')) {
       if (app.ship) app.ship.toggleCanopy();
     }
+    if (app.input && app.input.consumeTrigger('changeCam')) {
+      if (app.cameraController) app.cameraController.cycleView();
+    }
     if (app.input && app.input.consumeTrigger('toggleMute')) {
       if (app.audio) app.audio.toggleMute();
     }
@@ -287,88 +323,88 @@ async function boot() {
     }
 
     // Active Simulation
-    if (app.mode === 'race' && app.race && app.playerRacer) {
-      app.race.step(dt, input);
+    if (!app.paused) {
+      if (app.mode === 'race' && app.race && app.playerRacer) {
+        app.race.step(dt, input);
 
-      // Deck-aware chase camera tracking player racer
-      const camDist = 14.0 + (app.playerRacer.vs / app.playerRacer.handling.topSpeed) * 4.0;
-      const camHeight = 3.6 + (app.playerRacer.isBoosting ? 0.8 : 0);
-      const trackFrame = app.playerRacer.frame;
-      const fwd = trackFrame.T || new THREE.Vector3(0, 0, -1);
-      const up = trackFrame.U || new THREE.Vector3(0, 1, 0);
-
-      const chasePos = _vCamTarget.copy(app.playerRacer.pos)
-        .addScaledVector(fwd, -camDist)
-        .addScaledVector(up, camHeight);
-
-      app.camera.position.lerp(chasePos, 0.22);
-      app.camera.up.slerp(up, 0.2);
-      app.camera.lookAt(app.playerRacer.pos.x, app.playerRacer.pos.y + 1.2, app.playerRacer.pos.z);
-
-      // Lap pass audio chime
-      if (app.playerRacer.lap !== lastLapNum) {
-        if (app.playerRacer.lap > lastLapNum && app.audio) {
-          app.audio.playLapChime();
+        // Update Camera through CameraController
+        if (app.cameraController) {
+          app.cameraController.update(dt, app.playerRacer, app.track);
         }
-        lastLapNum = app.playerRacer.lap;
-      }
 
-      // Countdown audio sync
-      if (app.race.state === 'countdown') {
-        const cd = Math.ceil(app.race.countdownTime);
-        if (cd !== lastCdSec) {
-          lastCdSec = cd;
-          if (app.audio) app.audio.playCountdown(cd);
+        // Lap pass audio chime
+        if (app.playerRacer.lap !== lastLapNum) {
+          if (app.playerRacer.lap > lastLapNum && app.audio) {
+            app.audio.playLapChime();
+          }
+          lastLapNum = app.playerRacer.lap;
         }
-      } else if (app.race.state === 'racing' && app.music && !app.music.isPlaying) {
-        app.music.start(0);
-      }
 
-      // Update HUD
-      if (elRpos) elRpos.textContent = app.playerRacer.position || 4;
-      if (elLapn) elLapn.textContent = app.playerRacer.lap || 1;
-      if (elSpd) elSpd.textContent = Math.round(app.playerRacer.vs * 3.6);
-      if (elBstFill) elBstFill.style.width = `${Math.round(app.playerRacer.boostEnergy * 100)}%`;
-      if (elThrFill) elThrFill.style.width = `${Math.round((input.throttle || 0) * 100)}%`;
-
-      if (elState) {
+        // Countdown audio sync
         if (app.race.state === 'countdown') {
-          elState.textContent = 'SYSTEMS PRIMED';
-        } else if (app.race.state === 'finished') {
-          elState.textContent = 'RACE FINISHED';
-        } else {
-          elState.textContent = app.playerRacer.inAir ? 'BALLISTIC FLIGHT' : 'MAG-LOCK ACTIVE';
-        }
-      }
-
-      // Countdown overlay display
-      if (elCount) {
-        if (app.race.state === 'countdown') {
-          elCount.style.display = 'flex';
           const cd = Math.ceil(app.race.countdownTime);
-          if (elCountNum) elCountNum.textContent = cd > 0 ? cd : 'GO!';
-        } else {
-          elCount.style.display = 'none';
+          if (cd !== lastCdSec) {
+            lastCdSec = cd;
+            if (app.audio) app.audio.playCountdown(cd);
+          }
+        } else if (app.race.state === 'racing' && app.music && !app.music.isPlaying) {
+          app.music.start(0);
         }
+
+        // Update HUD through HUDController
+        if (app.hud) {
+          app.hud.update(dt, app.playerRacer, input);
+        }
+
+        // Update FX
+        if (app.fx) {
+          app.fx.update(dt, app.playerRacer);
+        }
+
+        if (elState) {
+          if (app.race.state === 'countdown') {
+            elState.textContent = 'SYSTEMS PRIMED';
+          } else if (app.race.state === 'finished') {
+            elState.textContent = 'RACE FINISHED';
+          } else {
+            elState.textContent = app.playerRacer.inAir ? 'BALLISTIC FLIGHT' : 'MAG-LOCK ACTIVE';
+          }
+        }
+
+        // Countdown overlay display
+        if (elCount) {
+          if (app.race.state === 'countdown') {
+            elCount.style.display = 'flex';
+            const cd = Math.ceil(app.race.countdownTime);
+            if (elCountNum) elCountNum.textContent = cd > 0 ? cd : 'GO!';
+          } else {
+            elCount.style.display = 'none';
+          }
+        }
+
+        // Check race results screen
+        if (app.race.state === 'finished' && app.menu && app.menu.currentView !== 'results') {
+          app.menu.showResults(app.race.getResults());
+        }
+      } else if (app.mode === 'free' && app.flight) {
+        app.flight.step(dt, input);
+
+        // Chase camera tracking free flight ship
+        const forwardDir = app.flight.vel.length() > 2.0
+          ? app.flight.vel.clone().normalize()
+          : new THREE.Vector3(0, 0, -1).applyQuaternion(app.ship.root.quaternion);
+
+        const chasePos = _vCamTarget.copy(app.ship.root.position)
+          .addScaledVector(forwardDir, -16.0)
+          .addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(app.ship.root.quaternion), 4.5);
+
+        app.camera.position.lerp(chasePos, 0.18);
+        app.camera.up.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
+        app.camera.lookAt(app.ship.root.position.x, app.ship.root.position.y + 1.2, app.ship.root.position.z);
+
+        if (elSpd) elSpd.textContent = Math.round(app.flight.speed * 3.6);
+        if (elState) elState.textContent = 'FREE FLIGHT';
       }
-    } else if (app.mode === 'free' && app.flight) {
-      app.flight.step(dt, input);
-
-      // Chase camera tracking free flight ship
-      const forwardDir = app.flight.vel.length() > 2.0
-        ? app.flight.vel.clone().normalize()
-        : new THREE.Vector3(0, 0, -1).applyQuaternion(app.ship.root.quaternion);
-
-      const chasePos = _vCamTarget.copy(app.ship.root.position)
-        .addScaledVector(forwardDir, -16.0)
-        .addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(app.ship.root.quaternion), 4.5);
-
-      app.camera.position.lerp(chasePos, 0.18);
-      app.camera.up.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
-      app.camera.lookAt(app.ship.root.position.x, app.ship.root.position.y + 1.2, app.ship.root.position.z);
-
-      if (elSpd) elSpd.textContent = Math.round(app.flight.speed * 3.6);
-      if (elState) elState.textContent = 'FREE FLIGHT';
     } else if (!app.playerRacer && app.track) {
       // Spectator flight along track
       const s = (now * 0.065) % app.track.length;

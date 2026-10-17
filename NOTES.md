@@ -1,7 +1,7 @@
 # Need4Space — Project Tracking & Notes
 
 ## Phases Progress
-- [ ] P0 — The v1.0 Game (space circuit, Feather S1, 8 rivals, HUD, menu, audio, music, post)
+- [x] P0 — The v1.0 Game (space circuit, Feather S1, 8 rivals, HUD, menu, audio, music, post)
   - [x] P0.1 Scaffold, server, loader, noise
   - [x] P0.2 Space backdrop (space.js, celestial.js)
   - [x] P0.3 Track class (track.js)
@@ -11,7 +11,7 @@
   - [x] P0.7 Race + AI (race.js)
   - [x] P0.8 Post pipeline (post.js, look.js, composer)
   - [x] P0.9 Audio and music (audio.js, music.js)
-  - [ ] P0.10 Input, camera, HUD, FX, menu, settings
+  - [x] P0.10 Input, camera, HUD, FX, menu, settings
 - [ ] P1 — Ship It: Pages, Performance, Loading, Laptop Mode, Mobile
 - [ ] P2 — Forest Moon
 - [ ] P3 — Ice Planet
