@@ -18,7 +18,9 @@ export class InputHandler {
       respawn: false,
       toggleCanopy: false,
       toggleEngine: false,
-      changeCam: false
+      changeCam: false,
+      toggleMute: false,
+      nextTrack: false
     };
 
     this._onKeyDown = this._onKeyDown.bind(this);
@@ -38,6 +40,8 @@ export class InputHandler {
     if (e.code === 'KeyT') this.raw.respawn = true;
     if (e.code === 'KeyF') this.raw.toggleCanopy = true;
     if (e.code === 'KeyC') this.raw.changeCam = true;
+    if (e.code === 'KeyM') this.raw.toggleMute = true;
+    if (e.code === 'KeyN') this.raw.nextTrack = true;
   }
 
   _onKeyUp(e) {

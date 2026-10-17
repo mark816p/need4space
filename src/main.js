@@ -11,6 +11,8 @@ import { FreeFlight } from './flight.js';
 import { InputHandler } from './input.js';
 import { Race } from './race.js';
 import { PostPipeline } from './post.js';
+import { AudioManager } from './audio.js';
+import { ProceduralMusic } from './music.js';
 
 // Global state container
 export const app = {
@@ -27,6 +29,8 @@ export const app = {
   race: null,
   playerRacer: null,
   post: null,
+  audio: null,
+  music: null,
   clock: new THREE.Clock(),
   running: false,
   paused: false,
@@ -89,6 +93,9 @@ window.__feather = {
       racerLap: app.playerRacer ? app.playerRacer.lap : 0,
       postReady: !!app.post,
       postEnabled: !!(app.post && app.post.enabled),
+      audioReady: !!app.audio,
+      audioMuted: !!(app.audio && app.audio.isMuted),
+      musicPlaying: !!(app.music && app.music.isPlaying),
     };
   },
   async advance(seconds) {
@@ -190,6 +197,32 @@ async function boot() {
   // Initialize free flight model as fallback / mode switch
   app.flight = new FreeFlight(app.ship, app.track);
 
+  status('Initializing Audio Synthesis...', 95);
+  await nextFrame();
+  app.audio = new AudioManager();
+  app.music = new ProceduralMusic(app.audio);
+
+  // Hook player racer audio feedback events
+  if (app.playerRacer) {
+    app.playerRacer.on('boost_start', () => {
+      if (app.audio) app.audio.playBoost();
+      if (app.music) app.music.triggerDuck(0.65);
+    });
+    app.playerRacer.on('pad_hit', () => {
+      if (app.audio) app.audio.playBoost();
+      if (app.music) app.music.triggerDuck(0.65);
+    });
+    app.playerRacer.on('jump_launch', () => {
+      if (app.audio) app.audio.playJumpLaunch();
+    });
+    app.playerRacer.on('landing', () => {
+      if (app.audio) app.audio.playJumpLand();
+    });
+    app.playerRacer.on('wall_hit', (e) => {
+      if (app.audio) app.audio.playWallScrape(e.side, e.speed);
+    });
+  }
+
   status('Systems Flight Ready', 100);
   await nextFrame();
 
@@ -199,6 +232,8 @@ async function boot() {
 
   let frames = 0;
   let lastTime = performance.now();
+  let lastCdSec = 5;
+  let lastLapNum = 1;
   const _fCam = {};
   const _fLook = {};
   const _vCamTarget = new THREE.Vector3();
@@ -244,6 +279,12 @@ async function boot() {
     if (app.input && app.input.consumeTrigger('toggleCanopy')) {
       if (app.ship) app.ship.toggleCanopy();
     }
+    if (app.input && app.input.consumeTrigger('toggleMute')) {
+      if (app.audio) app.audio.toggleMute();
+    }
+    if (app.input && app.input.consumeTrigger('nextTrack')) {
+      if (app.music) app.music.nextTrack();
+    }
 
     // Active Simulation
     if (app.mode === 'race' && app.race && app.playerRacer) {
@@ -263,6 +304,25 @@ async function boot() {
       app.camera.position.lerp(chasePos, 0.22);
       app.camera.up.slerp(up, 0.2);
       app.camera.lookAt(app.playerRacer.pos.x, app.playerRacer.pos.y + 1.2, app.playerRacer.pos.z);
+
+      // Lap pass audio chime
+      if (app.playerRacer.lap !== lastLapNum) {
+        if (app.playerRacer.lap > lastLapNum && app.audio) {
+          app.audio.playLapChime();
+        }
+        lastLapNum = app.playerRacer.lap;
+      }
+
+      // Countdown audio sync
+      if (app.race.state === 'countdown') {
+        const cd = Math.ceil(app.race.countdownTime);
+        if (cd !== lastCdSec) {
+          lastCdSec = cd;
+          if (app.audio) app.audio.playCountdown(cd);
+        }
+      } else if (app.race.state === 'racing' && app.music && !app.music.isPlaying) {
+        app.music.start(0);
+      }
 
       // Update HUD
       if (elRpos) elRpos.textContent = app.playerRacer.position || 4;
@@ -331,6 +391,15 @@ async function boot() {
         isBoosting: app.playerRacer ? app.playerRacer.isBoosting : false,
         hitImpulse: (app.playerRacer && app.playerRacer.ship) ? (app.playerRacer.ship.hitIntensity || 0) : 0
       };
+
+      if (app.audio) {
+        app.audio.update(dt, {
+          throttle: input.throttle || 0,
+          speed: telemetry.speed,
+          isBoosting: telemetry.isBoosting,
+          inAir: app.playerRacer ? app.playerRacer.inAir : false
+        });
+      }
 
       if (app.post) {
         app.post.render(dt, telemetry);
