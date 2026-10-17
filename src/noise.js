@@ -5,10 +5,17 @@ export function clamp(val, min, max) {
   return val < min ? min : val > max ? max : val;
 }
 
-// Exponential damping factor: 1 - exp(-k * dt)
-// Ensures framerate-independent follower smoothing across 60, 120, and 144 Hz
-export function damp(k, dt) {
-  return 1 - Math.exp(-k * dt);
+// Exponential damping factor / smoother:
+// Call damp(k, dt) -> factor: 1 - exp(-k * dt)
+// Call damp(current, target, k, dt) -> smoothly lerps current towards target: lerp(current, target, 1 - exp(-k * dt))
+export function damp(a, b, c, d) {
+  if (c !== undefined && d !== undefined) {
+    return a + (b - a) * (1.0 - Math.exp(-c * d));
+  }
+  if (b !== undefined) {
+    return 1.0 - Math.exp(-a * b);
+  }
+  return 1.0 - Math.exp(-a * (1.0 / 60.0));
 }
 
 export function smoothstep(edge0, edge1, x) {

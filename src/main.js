@@ -5,6 +5,9 @@ import * as THREE from 'three';
 import { CURRENT_VERSION } from './changelog.js';
 import { SpaceWorld } from './space.js';
 import { createSpaceTrack } from './track.js';
+import { Ship } from './ship.js';
+import { FreeFlight } from './flight.js';
+import { InputHandler } from './input.js';
 
 // Global state container
 export const app = {
@@ -15,12 +18,15 @@ export const app = {
   world: null,
   track: null,
   trackMesh: null,
+  ship: null,
+  flight: null,
+  input: null,
   race: null,
   playerRacer: null,
   clock: new THREE.Clock(),
   running: false,
   paused: false,
-  mode: 'race', // 'race' | 'free'
+  mode: 'free', // 'race' | 'free'
   buildStatus: 'Initializing',
   buildProgress: 0,
 };
@@ -71,6 +77,9 @@ window.__feather = {
       fps: app.fps || 0,
       trackReady: !!(app.track && app.trackMesh),
       trackLength: app.track ? app.track.length : 0,
+      shipReady: !!app.ship,
+      shipPower: app.ship ? app.ship.power : 0,
+      shipSpeed: app.flight ? app.flight.speed : 0,
     };
   },
   async advance(seconds) {
@@ -79,6 +88,8 @@ window.__feather = {
     for (let i = 0; i < steps; i++) {
       if (app.race) {
         app.race.step(dt);
+      } else if (app.flight) {
+        app.flight.step(dt, { throttle: 1.0 });
       }
     }
     if (app.renderer && app.scene && app.camera) {
@@ -140,12 +151,21 @@ async function boot() {
   await nextFrame();
   app.world = new SpaceWorld(app.scene, app.renderer, app.camera);
 
-  status('Building Space Circuit Meshes...', 70);
+  status('Building Space Circuit Meshes...', 65);
   await nextFrame();
   app.track = createSpaceTrack();
   app.trackMesh = app.track.meshes(app.scene);
 
-  status('Space Circuit Ready', 100);
+  status('Initializing Feather S1 & Flight...', 85);
+  await nextFrame();
+  app.input = new InputHandler();
+  app.ship = new Ship('feather');
+  app.scene.add(app.ship.root);
+  app.ship.attachTrails(app.scene);
+  app.flight = new FreeFlight(app.ship, app.track);
+  app.flight.respawnOntoTrack(app.track, 10.0);
+
+  status('Systems Flight Ready', 100);
   await nextFrame();
 
   // Hide loading screen and switch to menu/active state
@@ -156,6 +176,7 @@ async function boot() {
   let lastTime = performance.now();
   const _fCam = {};
   const _fLook = {};
+  const _vCamTarget = new THREE.Vector3();
 
   function animate(now) {
     requestAnimationFrame(animate);
@@ -168,8 +189,38 @@ async function boot() {
       lastTime = now;
     }
 
-    // Camera free flight along track when idle / spectator
-    if (!app.playerRacer && app.track) {
+    // Input actions
+    const input = app.input ? app.input.poll() : {};
+    if (app.input && app.input.consumeTrigger('toggleMode')) {
+      app.mode = (app.mode === 'race') ? 'free' : 'race';
+      const elMode = document.getElementById('hud-mode');
+      if (elMode) elMode.textContent = app.mode === 'free' ? 'Free flight' : 'Race';
+    }
+    if (app.input && app.input.consumeTrigger('respawn')) {
+      if (app.flight && app.track) app.flight.respawnOntoTrack(app.track, 0);
+    }
+    if (app.input && app.input.consumeTrigger('toggleCanopy')) {
+      if (app.ship) app.ship.toggleCanopy();
+    }
+
+    // Free flight arcade mode
+    if (app.mode === 'free' && app.flight) {
+      app.flight.step(dt, input);
+
+      // Chase camera tracking the ship
+      const forwardDir = app.flight.vel.length() > 2.0
+        ? app.flight.vel.clone().normalize()
+        : new THREE.Vector3(0, 0, -1).applyQuaternion(app.ship.root.quaternion);
+
+      const chasePos = _vCamTarget.copy(app.ship.root.position)
+        .addScaledVector(forwardDir, -16.0)
+        .addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(app.ship.root.quaternion), 4.5);
+
+      app.camera.position.lerp(chasePos, 0.18);
+      app.camera.up.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
+      app.camera.lookAt(app.ship.root.position.x, app.ship.root.position.y + 1.2, app.ship.root.position.z);
+    } else if (!app.playerRacer && app.track) {
+      // Spectator flight along track
       const s = (now * 0.065) % app.track.length;
       app.track.frame(s, _fCam);
       app.track.frame((s + 45.0) % app.track.length, _fLook);
