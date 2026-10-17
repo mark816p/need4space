@@ -3,7 +3,7 @@
 ## Phases Progress
 - [ ] P0 — The v1.0 Game (space circuit, Feather S1, 8 rivals, HUD, menu, audio, music, post)
   - [x] P0.1 Scaffold, server, loader, noise
-  - [ ] P0.2 Space backdrop (space.js, celestial.js)
+  - [x] P0.2 Space backdrop (space.js, celestial.js)
   - [ ] P0.3 Track class (track.js)
   - [ ] P0.4 Track meshes, deck and hull textures (deck.js, hull.js, rock.js)
   - [ ] P0.5 Ship + free flight (ship.js, shipmodels.js, flight.js)

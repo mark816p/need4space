@@ -1,0 +1,285 @@
+// src/space.js — Space circuit backdrop and environment world
+// Why: Backdrop in its own scene/camera: nebula, Milky-Way band, stars, gas giant, sun, moon
+// Three DirectionalLights for shadow cascades; lamps moved to nearest gantries without shader recompiles
+
+import * as THREE from 'three';
+import { createGasGiantTexture, createRingsTexture, createMoonTexture, createSunMaterial } from './celestial.js';
+
+export const SUN_DIR = new THREE.Vector3(0.68, 0.45, -0.58).normalize();
+
+export class SpaceWorld {
+  constructor(scene, renderer, camera) {
+    this.name = 'space';
+    this.scene = scene;
+    this.renderer = renderer;
+    this.camera = camera;
+    this.sunDir = SUN_DIR.clone();
+    this.ready = false;
+    this.startIndex = 0;
+    this.track = null;
+    this.minimap = null;
+    this.race = null;
+
+    // Atmospheric & look parameters
+    this.exposure = 1.0;
+    this.exposureK = 1.0;
+    this.grade = 'space';
+    this.headlightK = 0.35;
+    this.nightLights = 0.2;
+    this.lightShafts = true;
+    this.heat = false;
+    this.dust = false;
+    this.thunder = false;
+    this.underK = 0.0;
+    this.inFall = false;
+    this.renderScale = 1.0;
+
+    this.noAO = [];
+    this.aoOccluders = new Set();
+    this.worldOnly = [];
+
+    // Sky Backdrop Scene & Camera (rendered first in its own depth range 50m to 200,000m)
+    this.sky = new THREE.Scene();
+    this.skyCam = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 50, 300000);
+
+    // Shadow cascades
+    this._initLights();
+
+    // Celestial Bodies in sky scene
+    this._initBackdrop();
+
+    this.ready = true;
+  }
+
+  _initLights() {
+    // Sun cascade 1: Near (fine details, half 12m)
+    this.sun = new THREE.DirectionalLight(0xfffaed, 3.2);
+    this.sun.position.copy(this.sunDir).multiplyScalar(500);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.width = 2048;
+    this.sun.shadow.mapSize.height = 2048;
+    this.sun.shadow.camera.near = 100;
+    this.sun.shadow.camera.far = 1000;
+    this.sun.shadow.camera.left = -25;
+    this.sun.shadow.camera.right = 25;
+    this.sun.shadow.camera.top = 25;
+    this.sun.shadow.camera.bottom = -25;
+    this.sun.shadow.bias = -0.0002;
+    this.scene.add(this.sun);
+
+    // Sun cascade 2: Mid (gantries, track bends, half 60m)
+    this.sunMid = new THREE.DirectionalLight(0xfffaed, 0.0); // Shadow only cascade
+    this.sunMid.position.copy(this.sunDir).multiplyScalar(1200);
+    this.scene.add(this.sunMid);
+
+    // Sun cascade 3: Far (scenery, derelict)
+    this.sunFar = new THREE.DirectionalLight(0xfffaed, 0.0);
+    this.sunFar.position.copy(this.sunDir).multiplyScalar(3000);
+    this.scene.add(this.sunFar);
+
+    // Faint warm planet-shine & starlight ambient
+    const ambient = new THREE.AmbientLight(0x182438, 0.6);
+    this.scene.add(ambient);
+
+    // Fixed 3 point lights moved to nearest gantries (avoids mid-race shader recompiles)
+    this.lamps = [
+      new THREE.PointLight(0x00d2ff, 0, 80, 1.8),
+      new THREE.PointLight(0x00d2ff, 0, 80, 1.8),
+      new THREE.PointLight(0x00d2ff, 0, 80, 1.8),
+    ];
+    for (const lamp of this.lamps) {
+      this.scene.add(lamp);
+    }
+  }
+
+  _initBackdrop() {
+    // 1. Starfield: 14,000 procedural stars with temperature-based spectral colors
+    const starCount = 14000;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    const starCol = new Float32Array(starCount * 3);
+    const starSizes = new Float32Array(starCount);
+
+    const rMin = 80000;
+    const rMax = 160000;
+    const starPalette = [
+      new THREE.Color(0xaaccff), // Blue-white O/B type
+      new THREE.Color(0xffffff), // White A type
+      new THREE.Color(0xffeedd), // Yellow-white F/G type (Sun-like)
+      new THREE.Color(0xffaa55), // Orange K type
+      new THREE.Color(0xff5544), // Red M giant
+    ];
+
+    for (let i = 0; i < starCount; i++) {
+      // Uniform spherical distribution
+      const u = Math.random();
+      const v = Math.random();
+      const theta = u * 2.0 * Math.PI;
+      const phi = Math.acos(2.0 * v - 1.0);
+      const r = rMin + Math.random() * (rMax - rMin);
+
+      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      starPos[i * 3 + 2] = r * Math.cos(phi);
+
+      const color = starPalette[Math.floor(Math.random() * starPalette.length)];
+      starCol[i * 3] = color.r;
+      starCol[i * 3 + 1] = color.g;
+      starCol[i * 3 + 2] = color.b;
+
+      starSizes[i] = Math.random() < 0.05 ? 3.5 : 1.2 + Math.random() * 1.5;
+    }
+
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(starCol, 3));
+    starGeo.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+
+    const starMat = new THREE.PointsMaterial({
+      size: 2.0,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      sizeAttenuation: false,
+    });
+    this.starField = new THREE.Points(starGeo, starMat);
+    this.sky.add(this.starField);
+
+    // 2. The Sun: Boiling granulation sphere + corona
+    const sunDist = 70000;
+    const sunPos = this.sunDir.clone().multiplyScalar(sunDist);
+    const sunGeo = new THREE.SphereGeometry(3200, 48, 48);
+    this.sunMat = createSunMaterial();
+    this.sunMesh = new THREE.Mesh(sunGeo, this.sunMat);
+    this.sunMesh.position.copy(sunPos);
+    this.sky.add(this.sunMesh);
+
+    // Sun Corona Glow Sprite
+    const coronaCanvas = document.createElement('canvas');
+    coronaCanvas.width = 256;
+    coronaCanvas.height = 256;
+    const cctx = coronaCanvas.getContext('2d');
+    const grad = cctx.createRadialGradient(128, 128, 20, 128, 128, 128);
+    grad.addColorStop(0.0, 'rgba(255, 250, 235, 1.0)');
+    grad.addColorStop(0.2, 'rgba(255, 190, 80, 0.6)');
+    grad.addColorStop(0.5, 'rgba(255, 100, 20, 0.2)');
+    grad.addColorStop(1.0, 'rgba(255, 60, 0, 0.0)');
+    cctx.fillStyle = grad;
+    cctx.fillRect(0, 0, 256, 256);
+    const coronaTex = new THREE.CanvasTexture(coronaCanvas);
+
+    const coronaMat = new THREE.SpriteMaterial({
+      map: coronaTex,
+      color: 0xffeedd,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      depthWrite: false
+    });
+    const coronaSprite = new THREE.Sprite(coronaMat);
+    coronaSprite.scale.set(16000, 16000, 1);
+    coronaSprite.position.copy(sunPos);
+    this.sky.add(coronaSprite);
+
+    // 3. Ringed Gas Giant
+    const planetDist = 95000;
+    const planetPos = new THREE.Vector3(-0.45, -0.25, 0.85).normalize().multiplyScalar(planetDist);
+    const planetRadius = 8500;
+    const planetGeo = new THREE.SphereGeometry(planetRadius, 64, 64);
+    const planetTex = createGasGiantTexture(2048, 1024);
+    const planetMat = new THREE.MeshStandardMaterial({
+      map: planetTex,
+      roughness: 0.85,
+      metalness: 0.05
+    });
+    this.planetMesh = new THREE.Mesh(planetGeo, planetMat);
+    this.planetMesh.position.copy(planetPos);
+    this.planetMesh.rotation.z = THREE.MathUtils.degToRad(26.7); // Saturn-like axial tilt
+    this.sky.add(this.planetMesh);
+
+    // Planetary Rings
+    const ringInner = planetRadius * 1.35;
+    const ringOuter = planetRadius * 2.55;
+    const ringGeo = new THREE.RingGeometry(ringInner, ringOuter, 96);
+    // Rotate ring geometry so it lies in planet's equatorial plane
+    ringGeo.rotateX(-Math.PI * 0.5);
+    const ringTex = createRingsTexture(1024, 64);
+    const ringMat = new THREE.MeshStandardMaterial({
+      map: ringTex,
+      side: THREE.DoubleSide,
+      transparent: true,
+      roughness: 0.9,
+      metalness: 0.1
+    });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    this.planetMesh.add(ringMesh);
+
+    // 4. Cratered Moon
+    const moonDist = 82000;
+    const moonPos = new THREE.Vector3(0.55, 0.65, 0.45).normalize().multiplyScalar(moonDist);
+    const moonGeo = new THREE.SphereGeometry(1800, 32, 32);
+    const moonTex = createMoonTexture(1024, 512);
+    const moonMat = new THREE.MeshStandardMaterial({
+      map: moonTex,
+      roughness: 0.95,
+      metalness: 0.0
+    });
+    const moonMesh = new THREE.Mesh(moonGeo, moonMat);
+    moonMesh.position.copy(moonPos);
+    this.sky.add(moonMesh);
+
+    // Lighting for the Sky Scene so the planet and moon are lit consistently with sunDir
+    const skySun = new THREE.DirectionalLight(0xfffaed, 2.8);
+    skySun.position.copy(this.sunDir).multiplyScalar(200000);
+    this.sky.add(skySun);
+    this.sky.add(new THREE.AmbientLight(0x0c1424, 0.4));
+  }
+
+  follow(targetPos, camera) {
+    if (!targetPos) return;
+    // Position cascade 1 tight around the ship
+    this.sun.position.copy(targetPos).addScaledVector(this.sunDir, 250);
+    this.sun.target.position.copy(targetPos);
+    this.sun.target.updateMatrixWorld();
+  }
+
+  update(dt, camera, shipPos, s, renderer) {
+    // Update live boiling sun granulation
+    if (this.sunMat && this.sunMat.uniforms.uTime) {
+      this.sunMat.uniforms.uTime.value += dt;
+    }
+
+    // Sky camera tracks player camera orientation but stays centered at origin
+    // Why: Backdrop rendered in its own depth range (near 50, far 200000)
+    if (camera && this.skyCam) {
+      this.skyCam.aspect = camera.aspect;
+      this.skyCam.fov = camera.fov;
+      this.skyCam.quaternion.copy(camera.quaternion);
+      this.skyCam.updateProjectionMatrix();
+    }
+
+    if (shipPos) {
+      this.follow(shipPos, camera);
+    }
+  }
+
+  preRender(renderer) {
+    // Render sky backdrop first, clearing color and depth
+    if (this.sky && this.skyCam) {
+      renderer.clear();
+      renderer.render(this.sky, this.skyCam);
+      renderer.clearDepth();
+    }
+  }
+
+  shadowMode(size, renderer) {
+    if (this.sun && this.sun.shadow) {
+      this.sun.shadow.mapSize.set(size, size);
+      if (this.sun.shadow.map) {
+        this.sun.shadow.map.dispose();
+        this.sun.shadow.map = null;
+      }
+    }
+  }
+
+  setOptions(settings) {}
+  wetCheck() {}
+}

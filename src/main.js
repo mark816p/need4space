@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { CURRENT_VERSION } from './changelog.js';
+import { SpaceWorld } from './space.js';
 
 // Global state container
 export const app = {
@@ -130,7 +131,11 @@ async function boot() {
     app.renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  status('Scaffold Ready', 100);
+  status('Creating Space Environment...', 40);
+  await nextFrame();
+  app.world = new SpaceWorld(app.scene, app.renderer, app.camera);
+
+  status('Space World Ready', 100);
   await nextFrame();
 
   // Hide loading screen and switch to menu/active state
@@ -142,6 +147,7 @@ async function boot() {
 
   function animate(now) {
     requestAnimationFrame(animate);
+    const dt = Math.min(0.1, app.clock.getDelta());
     frames++;
     if (now - lastTime >= 1000) {
       app.fps = Math.round((frames * 1000) / (now - lastTime));
@@ -150,9 +156,21 @@ async function boot() {
       lastTime = now;
     }
 
-    if (app.running && app.renderer && app.scene && app.camera) {
-      app.renderer.clear();
-      app.renderer.render(app.scene, app.camera);
+    // Camera slow orbit on title/idle
+    if (!app.playerRacer) {
+      const angle = now * 0.00015;
+      app.camera.position.set(Math.sin(angle) * 120, 30 + Math.sin(angle * 0.5) * 15, Math.cos(angle) * 120);
+      app.camera.lookAt(0, 0, 0);
+    }
+
+    if (app.running && app.renderer) {
+      if (app.world) {
+        app.world.update(dt, app.camera, null, 0, app.renderer);
+        app.world.preRender(app.renderer);
+      }
+      if (app.scene && app.camera) {
+        app.renderer.render(app.scene, app.camera);
+      }
     }
   }
 
