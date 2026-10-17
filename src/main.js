@@ -9,6 +9,7 @@ import { createSpaceTrack, TrackRacer } from './track.js';
 import { Ship } from './ship.js';
 import { FreeFlight } from './flight.js';
 import { InputHandler } from './input.js';
+import { Race } from './race.js';
 
 // Global state container
 export const app = {
@@ -27,7 +28,7 @@ export const app = {
   clock: new THREE.Clock(),
   running: false,
   paused: false,
-  mode: 'free', // 'race' | 'free'
+  mode: 'race', // 'race' | 'free'
   buildStatus: 'Initializing',
   buildProgress: 0,
 };
@@ -163,19 +164,18 @@ async function boot() {
   app.track = createSpaceTrack();
   app.trackMesh = app.track.meshes(app.scene);
 
-  status('Initializing Feather S1 & Flight...', 85);
+  status('Initializing Race & Fleet...', 85);
   await nextFrame();
   app.input = new InputHandler();
-  app.ship = new Ship('feather');
-  app.scene.add(app.ship.root);
-  app.ship.attachTrails(app.scene);
 
-  // Initialize both free flight and track racer models
+  // Create 9-Ship Race
+  app.race = new Race(app.track, { difficulty: 'hard', numLaps: 3 });
+  app.race.attachToScene(app.scene);
+  app.playerRacer = app.race.playerRacer;
+  app.ship = app.playerRacer.ship;
+
+  // Initialize free flight model as fallback / mode switch
   app.flight = new FreeFlight(app.ship, app.track);
-  app.flight.respawnOntoTrack(app.track, 10.0);
-
-  app.playerRacer = new TrackRacer(app.track, app.ship, { isPlayer: true, difficulty: 'hard' });
-  app.playerRacer.reset(0, 0, 0);
 
   status('Systems Flight Ready', 100);
   await nextFrame();
@@ -189,6 +189,16 @@ async function boot() {
   const _fCam = {};
   const _fLook = {};
   const _vCamTarget = new THREE.Vector3();
+
+  // HUD Elements
+  const elRpos = document.getElementById('rpos');
+  const elLapn = document.getElementById('lapn');
+  const elSpd = document.getElementById('spd');
+  const elState = document.getElementById('state');
+  const elCount = document.getElementById('count');
+  const elCountNum = document.getElementById('count-num');
+  const elBstFill = document.querySelector('#bst .bar-fill');
+  const elThrFill = document.querySelector('#thr .bar-fill');
 
   function animate(now) {
     requestAnimationFrame(animate);
@@ -223,8 +233,8 @@ async function boot() {
     }
 
     // Active Simulation
-    if (app.mode === 'race' && app.playerRacer) {
-      app.playerRacer.step(dt, input);
+    if (app.mode === 'race' && app.race && app.playerRacer) {
+      app.race.step(dt, input);
 
       // Deck-aware chase camera tracking player racer
       const camDist = 14.0 + (app.playerRacer.vs / app.playerRacer.handling.topSpeed) * 4.0;
@@ -240,6 +250,34 @@ async function boot() {
       app.camera.position.lerp(chasePos, 0.22);
       app.camera.up.slerp(up, 0.2);
       app.camera.lookAt(app.playerRacer.pos.x, app.playerRacer.pos.y + 1.2, app.playerRacer.pos.z);
+
+      // Update HUD
+      if (elRpos) elRpos.textContent = app.playerRacer.position || 4;
+      if (elLapn) elLapn.textContent = app.playerRacer.lap || 1;
+      if (elSpd) elSpd.textContent = Math.round(app.playerRacer.vs * 3.6);
+      if (elBstFill) elBstFill.style.width = `${Math.round(app.playerRacer.boostEnergy * 100)}%`;
+      if (elThrFill) elThrFill.style.width = `${Math.round((input.throttle || 0) * 100)}%`;
+
+      if (elState) {
+        if (app.race.state === 'countdown') {
+          elState.textContent = 'SYSTEMS PRIMED';
+        } else if (app.race.state === 'finished') {
+          elState.textContent = 'RACE FINISHED';
+        } else {
+          elState.textContent = app.playerRacer.inAir ? 'BALLISTIC FLIGHT' : 'MAG-LOCK ACTIVE';
+        }
+      }
+
+      // Countdown overlay display
+      if (elCount) {
+        if (app.race.state === 'countdown') {
+          elCount.style.display = 'flex';
+          const cd = Math.ceil(app.race.countdownTime);
+          if (elCountNum) elCountNum.textContent = cd > 0 ? cd : 'GO!';
+        } else {
+          elCount.style.display = 'none';
+        }
+      }
     } else if (app.mode === 'free' && app.flight) {
       app.flight.step(dt, input);
 
@@ -255,19 +293,9 @@ async function boot() {
       app.camera.position.lerp(chasePos, 0.18);
       app.camera.up.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
       app.camera.lookAt(app.ship.root.position.x, app.ship.root.position.y + 1.2, app.ship.root.position.z);
-    } else if (!app.playerRacer && app.track) {
-      // Spectator flight along track
-      const s = (now * 0.065) % app.track.length;
-      app.track.frame(s, _fCam);
-      app.track.frame((s + 45.0) % app.track.length, _fLook);
-      app.camera.position.copy(_fCam.pos).addScaledVector(_fCam.U, 7.5).addScaledVector(_fCam.R, Math.sin(now * 0.0008) * 8.0);
-      app.camera.up.copy(_fCam.U);
-      app.camera.lookAt(_fLook.pos.x, _fLook.pos.y + 2.0, _fLook.pos.z);
-    }
 
-      app.camera.position.lerp(chasePos, 0.18);
-      app.camera.up.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
-      app.camera.lookAt(app.ship.root.position.x, app.ship.root.position.y + 1.2, app.ship.root.position.z);
+      if (elSpd) elSpd.textContent = Math.round(app.flight.speed * 3.6);
+      if (elState) elState.textContent = 'FREE FLIGHT';
     } else if (!app.playerRacer && app.track) {
       // Spectator flight along track
       const s = (now * 0.065) % app.track.length;
