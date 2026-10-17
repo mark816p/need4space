@@ -1,0 +1,10 @@
+{
+  "name": "need4space",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "imports": {
+    "three": "./tools/three.module.js",
+    "three/addons/*": "./tools/three.module.js"
+  }
+}

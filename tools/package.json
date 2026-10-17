@@ -1,0 +1,6 @@
+{
+  "type": "module",
+  "imports": {
+    "three": "./three.module.js"
+  }
+}
