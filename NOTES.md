@@ -13,7 +13,7 @@
   - [x] P0.9 Audio and music (audio.js, music.js)
   - [x] P0.10 Input, camera, HUD, FX, menu, settings
 - [x] P1 — Ship It: Pages, Performance, Loading, Laptop Mode, Mobile
-- [ ] P2 — Forest Moon
+- [x] P2 — Forest Moon (foresttrack.js, atmo.js, abyss.js, islands.js, flora.js, water.js, creatures.js, overgrowth.js, skeleton.js, forestworld.js, circuit selector, lens water & light shaft post passes)
 - [ ] P3 — Ice Planet
 - [ ] P4 — Derelict v1 & 56m Road
 - [ ] P5 — Drift, Gravity Flips, Air Pitch

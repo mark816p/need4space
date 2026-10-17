@@ -92,6 +92,7 @@ export class MenuManager {
         <div class="menu-list">
           <button class="btn btn-primary" id="btn-resume">RESUME RACE</button>
           <button class="btn" id="btn-restart">RESTART CIRCUIT</button>
+          <button class="btn" id="btn-circuits">SELECT CIRCUIT</button>
           <button class="btn" id="btn-options">OPTIONS</button>
           <button class="btn" id="btn-changelog">CHANGELOG (v${CURRENT_VERSION})</button>
         </div>
@@ -100,6 +101,7 @@ export class MenuManager {
 
     document.getElementById('btn-resume')?.addEventListener('click', () => this.resume());
     document.getElementById('btn-restart')?.addEventListener('click', () => this.restartRace());
+    document.getElementById('btn-circuits')?.addEventListener('click', () => this.showCircuits());
     document.getElementById('btn-options')?.addEventListener('click', () => this.showOptions());
     document.getElementById('btn-changelog')?.addEventListener('click', () => this.showChangelog());
   }
@@ -253,6 +255,56 @@ export class MenuManager {
     `;
 
     document.getElementById('btn-cl-back')?.addEventListener('click', () => this._renderPauseMenu());
+  }
+
+  showCircuits() {
+    if (!this.elSettings) return;
+    this._hideAllDialogs();
+    this.elSettings.classList.remove('hidden');
+    this.currentView = 'circuits';
+
+    const curCircuit = this.app.track ? this.app.track.name : 'space';
+
+    this.elSettings.innerHTML = `
+      <div class="dialog-card">
+        <h2 class="dialog-title">CIRCUIT SELECTOR</h2>
+        <div class="circuit-list">
+          <div class="circuit-card ${curCircuit === 'space' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-cyan); border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">ORBITAL STATION</span>
+              <span style="font-family: Rajdhani, sans-serif; color: var(--accent-cyan); font-weight: 700;">11.6 KM</span>
+            </div>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">The high-altitude space circuit orbiting gas giant Solaris IV. Mag-lock sweepers, vertical loop, and asteroid slalom.</p>
+            <button class="btn btn-primary" data-circuit="space" style="width: 100%;">${curCircuit === 'space' ? 'CURRENT CIRCUIT' : 'ENGAGE SPACE'}</button>
+          </div>
+          <div class="circuit-card ${curCircuit === 'forest' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(0, 255, 136, 0.08); border: 1px solid var(--accent-green); border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">FOREST MOON</span>
+              <span style="font-family: Rajdhani, sans-serif; color: var(--accent-green); font-weight: 700;">13.8 KM</span>
+            </div>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">A lush jungle world with floating islands, thundering waterfalls, and an ancient colossal reptilian skeleton spanning the track.</p>
+            <button class="btn btn-primary" data-circuit="forest" style="width: 100%; border-color: var(--accent-green);">${curCircuit === 'forest' ? 'CURRENT CIRCUIT' : 'ENGAGE FOREST'}</button>
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn" id="btn-circuits-back">RETURN</button>
+        </div>
+      </div>
+    `;
+
+    if (this.elSettings.querySelectorAll) {
+      this.elSettings.querySelectorAll('[data-circuit]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const c = e.target.dataset.circuit;
+          if (this.app.loadCircuit) {
+            this.app.loadCircuit(c);
+          }
+          this.resume();
+        });
+      });
+    }
+
+    document.getElementById('btn-circuits-back')?.addEventListener('click', () => this._renderPauseMenu());
   }
 
   showResults(results = []) {

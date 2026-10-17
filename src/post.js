@@ -389,6 +389,9 @@ const LookCompositeShader = {
     vignetteDarkness: { value: 0.65 },
     chromaOffset: { value: 0.001 },
     bloomStrength: { value: 0.65 },
+    waterSpray: { value: 0.0 },
+    speedRatio: { value: 0.0 },
+    enableShafts: { value: 1.0 },
     enableAO: { value: 1.0 },
     enableSSR: { value: 1.0 },
     enableBloom: { value: 1.0 },
@@ -415,6 +418,9 @@ const LookCompositeShader = {
     uniform float vignetteDarkness;
     uniform float chromaOffset;
     uniform float bloomStrength;
+    uniform float waterSpray;
+    uniform float speedRatio;
+    uniform float enableShafts;
     uniform float enableAO;
     uniform float enableSSR;
     uniform float enableBloom;
@@ -436,16 +442,32 @@ const LookCompositeShader = {
       float dist = length(toCenter);
       vec2 dir = toCenter / max(dist, 0.0001);
 
+      // Lens Water Pass: refractive draining film and outward-blown drops
+      vec2 sampleUv = vUv;
+      if (waterSpray > 0.005) {
+        vec2 dropUv = vUv * vec2(16.0, 9.0) + dir * (speedRatio * 1.8 * waterSpray);
+        vec2 id = floor(dropUv);
+        vec2 f = fract(dropUv) - 0.5;
+        float h = fract(sin(dot(id, vec2(127.1, 311.7))) * 43758.5453);
+        if (h > 0.6) {
+          float d = length(f);
+          if (d < 0.38) {
+            vec2 dropNorm = (f / 0.38) * (1.0 - d / 0.38);
+            sampleUv += dropNorm * 0.035 * waterSpray;
+          }
+        }
+      }
+
       // 1. Chromatic Aberration with radial falloff
       vec3 col;
       if (enableLook > 0.5) {
         float shift = chromaOffset * pow(dist, 1.4);
-        float r = texture2D(tScene, vUv + dir * shift).r;
-        float g = texture2D(tScene, vUv).g;
-        float b = texture2D(tScene, vUv - dir * shift).b;
+        float r = texture2D(tScene, sampleUv + dir * shift).r;
+        float g = texture2D(tScene, sampleUv).g;
+        float b = texture2D(tScene, sampleUv - dir * shift).b;
         col = vec3(r, g, b);
       } else {
-        col = texture2D(tScene, vUv).rgb;
+        col = texture2D(tScene, sampleUv).rgb;
       }
 
       // 2. Ambient Occlusion Composite
@@ -460,10 +482,17 @@ const LookCompositeShader = {
         col += ssr;
       }
 
-      // 4. Bloom Composite
+      // 4. Bloom Composite & Atmospheric Light Shafts
       if (enableBloom > 0.5) {
         vec3 bloom = texture2D(tBloom, vUv).rgb;
         col += bloom * bloomStrength;
+      }
+
+      // Broad light shafts
+      if (enableShafts > 0.5) {
+        vec2 sunScreen = vec2(0.62, 0.32);
+        float shaft = max(0.0, 1.0 - length(vUv - sunScreen) * 0.95);
+        col += vec3(1.0, 0.95, 0.82) * (pow(shaft, 3.0) * 0.18);
       }
 
       // 5. Look Pass: Tone Mapping & Film Optics
@@ -505,6 +534,8 @@ export class PostPipeline {
     this.enableSSR = true; // Key 3: Deck SSR
     this.enableBloom = true; // Key 4: Bloom
     this.enableLook = true; // Key 5: Film Optics (Tone mapping, grain, chroma, vignette)
+    this.enableShafts = true;
+    this.waterSpray = 0.0;
 
     this.fsTriangle = new FullScreenTriangle();
 
@@ -749,6 +780,13 @@ export class PostPipeline {
       this.fsTriangle.render(this.renderer, this.matGaussianBlur, this.bloomBlurV);
     }
 
+    // Water spray simulation: increases when passing through waterfall, drains under airflow
+    if (telemetry.waterSpray || telemetry.inWaterfall) {
+      this.waterSpray = Math.min(1.0, this.waterSpray + dt * 2.8);
+    } else {
+      this.waterSpray = Math.max(0.0, this.waterSpray - dt * 0.32);
+    }
+
     // 6. Look & Composite Pass (Render to Screen)
     const uComp = this.matLookComposite.uniforms;
     uComp.tScene.value = this.sceneTarget.texture;
@@ -764,6 +802,9 @@ export class PostPipeline {
     uComp.vignetteDarkness.value = this.look.params.vignetteDarkness;
     uComp.chromaOffset.value = this.look.currentChroma;
     uComp.bloomStrength.value = this.look.currentBloomStrength;
+    uComp.waterSpray.value = this.waterSpray;
+    uComp.speedRatio.value = Math.min(1.5, (telemetry.speed || 0) / 250.0);
+    uComp.enableShafts.value = this.enableShafts ? 1.0 : 0.0;
 
     uComp.enableAO.value = this.enableAO ? 1.0 : 0.0;
     uComp.enableSSR.value = this.enableSSR ? 1.0 : 0.0;
@@ -785,3 +826,108 @@ export class PostPipeline {
     this.bloomBlurV.dispose();
   }
 }
+
+export class LensWaterPass {
+  constructor() {
+    this.uniforms = {
+      tDiffuse: { value: null },
+      uSpeed: { value: 0.0 },
+      uIntensity: { value: 0.0 },
+      uTime: { value: 0.0 },
+    };
+    this.material = new THREE.ShaderMaterial({
+      uniforms: this.uniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uSpeed;
+        uniform float uIntensity;
+        uniform float uTime;
+        varying vec2 vUv;
+        void main() {
+          vec2 dir = vUv - 0.5;
+          float r = length(dir);
+          vec2 normDir = r > 0.001 ? dir / r : vec2(0.0);
+          vec2 dropUv = vUv * vec2(16.0, 9.0) + dir * (uSpeed * 0.005 * uIntensity);
+          vec2 dropCell = fract(dropUv) - 0.5;
+          float d = length(dropCell);
+          vec2 uv = vUv;
+          if (d < 0.28) {
+            vec2 dropNorm = (dropCell / 0.28) * smoothstep(0.28, 0.05, d);
+            uv += dropNorm * 0.035 * uIntensity;
+          }
+          gl_FragColor = texture2D(tDiffuse, uv);
+        }
+      `
+    });
+    this.fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
+  }
+
+  render(renderer, writeBuffer, readBuffer) {
+    if (!renderer) return;
+    this.uniforms.tDiffuse.value = readBuffer ? readBuffer.texture : null;
+    renderer.setRenderTarget(writeBuffer || null);
+    renderer.render(this.fsQuad, new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1));
+  }
+}
+
+export class ShaftPass {
+  constructor() {
+    this.uniforms = {
+      tDiffuse: { value: null },
+      uSunPos: { value: new THREE.Vector2(0.5, 0.5) },
+      uIntensity: { value: 1.0 },
+      uDecay: { value: 0.95 },
+      uDensity: { value: 0.84 },
+      uWeight: { value: 0.58 },
+    };
+    this.material = new THREE.ShaderMaterial({
+      uniforms: this.uniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform vec2 uSunPos;
+        uniform float uIntensity;
+        uniform float uDecay;
+        uniform float uDensity;
+        uniform float uWeight;
+        varying vec2 vUv;
+        void main() {
+          vec2 delta = (vUv - uSunPos) * (1.0 / 16.0) * uDensity;
+          vec2 coord = vUv;
+          vec4 col = texture2D(tDiffuse, coord);
+          float illum = 1.0;
+          for (int i = 0; i < 16; i++) {
+            coord -= delta;
+            vec4 samp = texture2D(tDiffuse, coord);
+            samp *= illum * uWeight;
+            col += samp;
+            illum *= uDecay;
+          }
+          gl_FragColor = col * uIntensity;
+        }
+      `
+    });
+    this.fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.material);
+  }
+
+  render(renderer, writeBuffer, readBuffer) {
+    if (!renderer) return;
+    this.uniforms.tDiffuse.value = readBuffer ? readBuffer.texture : null;
+    renderer.setRenderTarget(writeBuffer || null);
+    renderer.render(this.fsQuad, new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1));
+  }
+}
+

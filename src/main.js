@@ -5,7 +5,9 @@ import * as THREE from 'three';
 import { CURRENT_VERSION } from './changelog.js';
 import { clamp } from './noise.js';
 import { SpaceWorld } from './space.js';
+import { ForestWorld } from './forestworld.js';
 import { createSpaceTrack, TrackRacer } from './track.js';
+import { createForestTrack } from './foresttrack.js';
 import { Ship } from './ship.js';
 import { FreeFlight } from './flight.js';
 import { InputHandler } from './input.js';
@@ -93,6 +95,7 @@ window.__feather = {
       mode: app.mode,
       ready: document.body.dataset.ui !== 'loading',
       fps: app.fps || 0,
+      circuit: app.track ? app.track.name : 'space',
       trackReady: !!(app.track && app.trackMesh),
       trackLength: app.track ? app.track.length : 0,
       shipReady: !!app.ship,
@@ -147,6 +150,96 @@ window.__feather = {
     });
   }
 };
+
+export function hookRacerEvents(app) {
+  if (!app.playerRacer) return;
+  app.playerRacer.on('boost_start', () => {
+    if (app.audio) app.audio.playBoost();
+    if (app.music) app.music.triggerDuck(0.65);
+    if (app.fx) app.fx.flash('boost');
+    if (app.cameraController) app.cameraController.addTrauma(0.25);
+  });
+  app.playerRacer.on('pad_hit', () => {
+    if (app.audio) app.audio.playBoost();
+    if (app.music) app.music.triggerDuck(0.65);
+    if (app.fx) app.fx.flash('pad');
+    if (app.cameraController) app.cameraController.addTrauma(0.35);
+  });
+  app.playerRacer.on('jump_launch', () => {
+    if (app.audio) app.audio.playJumpLaunch();
+  });
+  app.playerRacer.on('landing', () => {
+    if (app.audio) app.audio.playJumpLand();
+    if (app.cameraController) app.cameraController.addTrauma(0.4);
+  });
+  app.playerRacer.on('wall_hit', (e) => {
+    if (app.audio) app.audio.playWallScrape(e.side, e.speed);
+    if (app.fx) {
+      app.fx.flash('impact');
+      if (app.playerRacer.pos && app.playerRacer.frame.R) {
+        const contactSide = (e.side >= 0 ? 1 : -1);
+        const contactPos = app.playerRacer.pos.clone().addScaledVector(app.playerRacer.frame.R, contactSide * 4.5);
+        app.fx.emitSparks(contactPos, app.playerRacer.frame.R, 25);
+      }
+    }
+    if (app.cameraController) app.cameraController.addTrauma(0.5);
+  });
+}
+
+export async function loadCircuit(name = 'space') {
+  status(`Loading ${name === 'forest' ? 'Forest Moon' : 'Space Circuit'}...`, 40);
+  await nextFrame();
+
+  if (app.scene) {
+    while (app.scene.children.length > 0) {
+      app.scene.remove(app.scene.children[0]);
+    }
+  }
+
+  if (name === 'forest') {
+    app.track = createForestTrack();
+    app.trackMesh = app.track.meshes(app.scene);
+    app.world = new ForestWorld(app.scene, app.renderer, app.camera, app.track);
+  } else {
+    app.track = createSpaceTrack();
+    app.trackMesh = app.track.meshes(app.scene);
+    app.world = new SpaceWorld(app.scene, app.renderer, app.camera);
+  }
+
+  const diff = app.settings ? app.settings.get('difficulty') : 'hard';
+  app.race = new Race(app.track, { difficulty: diff, numLaps: 3 });
+  app.race.attachToScene(app.scene);
+  app.playerRacer = app.race.playerRacer;
+  app.ship = app.playerRacer.ship;
+  app.flight = new FreeFlight(app.ship, app.track);
+  hookRacerEvents(app);
+
+  if (app.scene && app.camera) {
+    app.fx = new FXSystem(app.scene, app.camera);
+  }
+
+  if (app.hud) {
+    app.hud.track = app.track;
+    app.hud.race = app.race;
+    app.hud.bakeMinimap();
+    app.hud.currentLapTime = 0;
+    app.hud.totalRaceTime = 0;
+    app.hud.currentLap = 1;
+    app.hud.score = 0;
+  }
+
+  if (app.renderer && app.scene && app.camera) {
+    try {
+      app.renderer.compile(app.scene, app.camera);
+    } catch (e) {
+      console.warn('[Renderer] Shader precompilation notice:', e);
+    }
+  }
+
+  status('Systems Flight Ready', 100);
+  await nextFrame();
+}
+app.loadCircuit = loadCircuit;
 
 // Initialize Renderer & WebGL Context
 async function boot() {
@@ -214,40 +307,7 @@ async function boot() {
   app.audio = new AudioManager();
   app.music = new ProceduralMusic(app.audio);
 
-  // Hook player racer audio and visual feedback events
-  if (app.playerRacer) {
-    app.playerRacer.on('boost_start', () => {
-      if (app.audio) app.audio.playBoost();
-      if (app.music) app.music.triggerDuck(0.65);
-      if (app.fx) app.fx.flash('boost');
-      if (app.cameraController) app.cameraController.addTrauma(0.25);
-    });
-    app.playerRacer.on('pad_hit', () => {
-      if (app.audio) app.audio.playBoost();
-      if (app.music) app.music.triggerDuck(0.65);
-      if (app.fx) app.fx.flash('pad');
-      if (app.cameraController) app.cameraController.addTrauma(0.35);
-    });
-    app.playerRacer.on('jump_launch', () => {
-      if (app.audio) app.audio.playJumpLaunch();
-    });
-    app.playerRacer.on('landing', () => {
-      if (app.audio) app.audio.playJumpLand();
-      if (app.cameraController) app.cameraController.addTrauma(0.4);
-    });
-    app.playerRacer.on('wall_hit', (e) => {
-      if (app.audio) app.audio.playWallScrape(e.side, e.speed);
-      if (app.fx) {
-        app.fx.flash('impact');
-        if (app.playerRacer.pos && app.playerRacer.frame.R) {
-          const contactSide = (e.side >= 0 ? 1 : -1);
-          const contactPos = app.playerRacer.pos.clone().addScaledVector(app.playerRacer.frame.R, contactSide * 4.5);
-          app.fx.emitSparks(contactPos, app.playerRacer.frame.R, 25);
-        }
-      }
-      if (app.cameraController) app.cameraController.addTrauma(0.5);
-    });
-  }
+  hookRacerEvents(app);
 
   status('Initializing UI & Subsystems...', 98);
   await nextFrame();
