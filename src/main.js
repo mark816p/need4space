@@ -214,7 +214,8 @@ export async function loadCircuit(name = 'space') {
   }
 
   const diff = app.settings ? app.settings.get('difficulty') : 'hard';
-  app.race = new Race(app.track, { difficulty: diff, numLaps: 3 });
+  const airPitch = app.settings ? app.settings.get('airPitch') : true;
+  app.race = new Race(app.track, { difficulty: diff, numLaps: 3, airPitch });
   app.race.attachToScene(app.scene);
   app.playerRacer = app.race.playerRacer;
   app.ship = app.playerRacer.ship;
@@ -301,7 +302,7 @@ async function boot() {
   app.input = new InputHandler();
 
   // Create 9-Ship Race
-  app.race = new Race(app.track, { difficulty: 'hard', numLaps: 3 });
+  app.race = new Race(app.track, { difficulty: 'hard', numLaps: 3, airPitch: true });
   app.race.attachToScene(app.scene);
   app.playerRacer = app.race.playerRacer;
   app.ship = app.playerRacer.ship;
@@ -319,7 +320,10 @@ async function boot() {
   status('Initializing UI & Subsystems...', 98);
   await nextFrame();
   app.settings = new SettingsManager();
-  app.cameraController = new CameraController(app.camera, { fov: app.settings.get('fov') });
+  app.cameraController = new CameraController(app.camera, {
+    fov: app.settings.get('fov'),
+    rollFollow: 1.0
+  });
   app.hud = new HUDController(app.track, app.race);
   app.fx = new FXSystem(app.scene, app.camera);
   app.menu = new MenuManager(app);

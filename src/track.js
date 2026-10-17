@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { clamp, lerp } from './noise.js';
 import { buildTrackMeshes } from './trackmesh.js';
-export { TrackRacer } from './trackracer.js';
+export { TrackRacer, PITCH_AIR } from './trackracer.js';
 
 export const STEP = 2.0;           // 2 m frame spacing along track
 export const TRACK_W_V1 = 44.0;    // 44 m road width in v1.0 (expanded to 56 m in P4)
@@ -35,7 +35,7 @@ export class Track {
     this.features = features;
 
     // Feature zones
-    this.gaps = features.gaps || [];         // [[s0, s1], ...]
+    this.gaps = [...(features.gaps || [])];   // [[s0, s1], ...]
     this.loops = features.loops || [];       // [[s0, s1], ...]
     this.tunnels = features.tunnels || [];   // [[s0, s1], ...]
     this.caves = features.caves || [];       // [[s0, s1], ...]
@@ -43,6 +43,14 @@ export class Track {
     this.gates = features.gates || [];       // [{ s, color }, ...]
     this.flips = features.flips || [];       // [[s0, s1], ...]
     this.name = features.name || 'space';
+
+    // Flips also go into gaps for meshes/lips/AI planning
+    for (let i = 0; i < this.flips.length; i++) {
+      const [f0, f1] = this.flips[i];
+      if (!this.gaps.some(([g0, g1]) => Math.abs(g0 - f0) < 5 && Math.abs(g1 - f1) < 5)) {
+        this.gaps.push([f0, f1]);
+      }
+    }
 
     this._buildCurve();
     this._buildFrames();
@@ -385,6 +393,24 @@ export class Track {
     return false;
   }
 
+  inFlip(s) {
+    s = this.wrap(s);
+    for (let i = 0; i < this.flips.length; i++) {
+      const [s0, s1] = this.flips[i];
+      if (s >= s0 && s <= s1) return true;
+    }
+    return false;
+  }
+
+  getFlip(s) {
+    s = this.wrap(s);
+    for (let i = 0; i < this.flips.length; i++) {
+      const [s0, s1] = this.flips[i];
+      if (s >= s0 && s <= s1) return this.flips[i];
+    }
+    return null;
+  }
+
   speedProfile(s) {
     s = this.wrap(s);
     const idx = Math.floor(s / this.actualStep) % this.n;
@@ -458,11 +484,20 @@ export function createSpaceTrack() {
       name = 'Loop Exit';
       y += R_LOOP * 0.8;
       bank = 0;
-    } else if (i >= 10 && i <= 14) {
-      // Barrel Roll 1: 360 deg continuous bank spread over 4 sectors
-      name = 'Barrel Roll 1';
-      const rollFrac = (i - 10) / 4.0;
-      bank = rollFrac * 360.0;
+    } else if (i === 10) {
+      name = 'Gravity Flip 1 Approach';
+      bank = 0;
+    } else if (i === 11) {
+      name = 'Gravity Flip 1 (Climb 24m & Invert)';
+      y += 24.0;
+      bank = 180.0;
+    } else if (i >= 12 && i <= 13) {
+      name = 'Overhead Inverted Straight';
+      y += 24.0;
+      bank = 180.0;
+    } else if (i === 14) {
+      name = 'Gravity Flip 2 (Descent 24m & Upright)';
+      bank = 0;
     } else if (i >= 16 && i <= 18) {
       name = 'Asteroid Slalom';
       bank = (i % 2 === 0 ? 30 : -30);
@@ -500,6 +535,10 @@ export function createSpaceTrack() {
   // Feature markers
   const features = {
     name: 'space',
+    flips: [
+      [3440, 3680],   // Gravity Flip 1 (180 deg turnover, climb 24 m to overhead deck)
+      [4520, 4760],   // Gravity Flip 2 (180 deg turnover, descent 24 m to standard deck)
+    ],
     gaps: [
       [1650, 1800],   // Jump Gap 1 (150 m leap)
       [7500, 7650],   // Jump Gap 2 (150 m leap)
@@ -518,7 +557,8 @@ export function createSpaceTrack() {
       { s: 400, x: 0, kind: 'boost' },
       { s: 1550, x: 0, kind: 'boost' },   // Pre-jump pad 1
       { s: 1980, x: 0, kind: 'boost' },   // Pre-loop boost
-      { s: 3600, x: 6, kind: 'boost' },
+      { s: 3600, x: 0, kind: 'boost' },   // Post-flip 1 boost pad
+      { s: 4750, x: 0, kind: 'boost' },   // Pre-flip 2 boost pad
       { s: 5200, x: -8, kind: 'boost' },
       { s: 6300, x: 0, kind: 'boost' },   // Cave entry pad
       { s: 7400, x: 0, kind: 'boost' },   // Pre-jump pad 2
@@ -531,7 +571,9 @@ export function createSpaceTrack() {
       { s: 300, color: 0x00d2ff },
       { s: 1600, color: 0xffaa00 },
       { s: 2700, color: 0x00ff88 },
+      { s: 3350, color: 0xa855f7 }, // Magenta gate before Gravity Flip 1
       { s: 4200, color: 0xa855f7 },
+      { s: 5050, color: 0x00d2ff }, // Cyan gate after Gravity Flip 2
       { s: 6250, color: 0x00d2ff },
       { s: 7450, color: 0xff3366 },
       { s: 9250, color: 0xff8800 }, // Orange gate before the Colossus

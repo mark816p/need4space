@@ -16,7 +16,7 @@
 - [x] P2 — Forest Moon (foresttrack.js, atmo.js, abyss.js, islands.js, flora.js, water.js, creatures.js, overgrowth.js, skeleton.js, forestworld.js, circuit selector, lens water & light shaft post passes)
 - [x] P3 — Ice Planet (icetrack.js, frost.js, glacier.js, spires.js, blizzard.js, storm.js, iceworld.js, circuit selector entry)
 - [x] P4 — Derelict v1 & 56m Road (wreckplan.js, wreckzones.js, wreck.js, 56m road width, dynamic headlights, space circuit derelict threading)
-- [ ] P5 — Drift, Gravity Flips, Air Pitch
+- [x] P5 — Drift, Gravity Flips, Air Pitch (TrackRacer.drifting=false, gravity flips with 180 turnover and flipFields, airPitch=14 m/s2, camera rollFollow=1)
 - [ ] P6 — Ice Shelf Crevasse & Desert Planet
 - [ ] P7 — Forest Cave & Derelict Colossus
 - [ ] P8 — Playtest Tuning, License, v1.1 "Four Worlds"

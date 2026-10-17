@@ -22,6 +22,7 @@ export class CameraController {
     // Base optical parameters
     this.baseFov = options.fov || 65.0;
     this.currentFov = this.baseFov;
+    this.rollFollow = options.rollFollow !== undefined ? options.rollFollow : 1.0; // 1 = camera rolls with the deck
 
     // Trauma & Shake
     this.trauma = 0.0; // 0..1 trauma accumulator
@@ -116,7 +117,11 @@ export class CameraController {
         .addScaledVector(up, shakeY);
 
       this.camera.position.lerp(this._vChasePos, 0.24);
-      this.camera.up.lerp(up, 0.2);
+      if (this.rollFollow >= 1.0) {
+        this.camera.up.lerp(up, 0.35).normalize();
+      } else {
+        this.camera.up.lerp(up, 0.2).normalize();
+      }
 
       this._vLookAt.copy(racerPos)
         .addScaledVector(up, 1.2)
@@ -135,7 +140,11 @@ export class CameraController {
         .addScaledVector(up, shakeY * 0.7);
 
       this.camera.position.lerp(this._vChasePos, 0.32);
-      this.camera.up.lerp(up, 0.25);
+      if (this.rollFollow >= 1.0) {
+        this.camera.up.lerp(up, 0.45).normalize();
+      } else {
+        this.camera.up.lerp(up, 0.25).normalize();
+      }
 
       this._vLookAt.copy(racerPos).addScaledVector(up, 1.0).addScaledVector(fwd, 4.0);
       this.camera.lookAt(this._vLookAt.x, this._vLookAt.y, this._vLookAt.z);

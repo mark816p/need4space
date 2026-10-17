@@ -28,6 +28,8 @@ export class HUDController {
     this.elSpdbar = hasDoc ? document.getElementById('spdbar') : null;
     this.elBstFill = hasDoc ? document.querySelector('#bst .bar-fill') : null;
     this.elThrFill = hasDoc ? document.querySelector('#thr .bar-fill') : null;
+    this.elBstOverflow = hasDoc ? document.getElementById('bst-overflow') : null;
+    this.elDriftChain = hasDoc ? document.getElementById('drift-chain') : null;
     this.elState = hasDoc ? document.getElementById('state') : null;
 
     // Timing DOM
@@ -163,10 +165,32 @@ export class HUDController {
 
     // Energy & Thrust bars
     if (this.elBstFill) {
-      this.elBstFill.style.width = `${Math.round(playerRacer.boostEnergy * 100)}%`;
+      const pct = Math.min(100, Math.round(playerRacer.boostEnergy * 100));
+      this.elBstFill.style.width = `${pct}%`;
+      if (playerRacer.boostEnergy > 1.0) {
+        if (this.elBstFill.classList) this.elBstFill.classList.add('overflow');
+        if (this.elBstOverflow) {
+          const overPct = Math.round((playerRacer.boostEnergy - 1.0) * 200);
+          this.elBstOverflow.style.width = `${overPct}%`;
+          this.elBstOverflow.style.display = 'block';
+        }
+      } else {
+        if (this.elBstFill.classList) this.elBstFill.classList.remove('overflow');
+        if (this.elBstOverflow) this.elBstOverflow.style.display = 'none';
+      }
     }
     if (this.elThrFill) {
       this.elThrFill.style.width = `${Math.round((input.throttle || 0) * 100)}%`;
+    }
+
+    // Drift Chain indicator (dormant when drift inactive)
+    if (this.elDriftChain) {
+      if (playerRacer.driftChain && playerRacer.driftChain > 1) {
+        this.elDriftChain.textContent = `CHAIN x${playerRacer.driftChain}`;
+        this.elDriftChain.style.display = 'block';
+      } else {
+        this.elDriftChain.style.display = 'none';
+      }
     }
 
     // Times & Score

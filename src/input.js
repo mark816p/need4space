@@ -135,9 +135,11 @@ export class InputHandler {
       for (let i = 0; i < gamepads.length; i++) {
         const gp = gamepads[i];
         if (gp && gp.connected) {
-          // Left stick steering
+          // Left stick steering & pitch
           const stickX = Math.abs(gp.axes[0]) > 0.12 ? gp.axes[0] : 0;
           if (Math.abs(stickX) > 0.12) steer = stickX;
+          const stickY = Math.abs(gp.axes[1]) > 0.12 ? gp.axes[1] : 0;
+          if (Math.abs(stickY) > 0.12) pitch = stickY;
 
           // RT (button 7) or A (button 0) for throttle
           const rt = gp.buttons[7] ? gp.buttons[7].value : 0;

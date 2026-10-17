@@ -193,6 +193,7 @@ export class DriverAI {
 export class Race {
   constructor(track, options = {}) {
     this.track = track;
+    this.options = options;
     this.difficulty = options.difficulty || 'hard';
     this.numLaps = options.numLaps || 3;
     this.state = 'countdown'; // 'grid' | 'countdown' | 'racing' | 'finished'
@@ -228,7 +229,8 @@ export class Race {
       const racer = new TrackRacer(this.track, ship, {
         isPlayer,
         difficulty: this.difficulty,
-        kind: 'feather'
+        kind: 'feather',
+        airPitch: this.options.airPitch !== undefined ? this.options.airPitch : true
       });
 
       racer.team = team;

@@ -721,7 +721,13 @@ export function buildTrackMeshes(track, scene) {
   root.add(tunnelGroup);
 
   // -------------------------------------------------------------------------
-  // 8. Asteroid Field & Deep Space Truss Towers
+  // 8. Gravity Flip Fields (flipFields() tubes of light, magenta-violet theme)
+  // -------------------------------------------------------------------------
+  const flipGroup = flipFields(track);
+  root.add(flipGroup);
+
+  // -------------------------------------------------------------------------
+  // 9. Asteroid Field & Deep Space Truss Towers
   // -------------------------------------------------------------------------
   const asteroidField = createAsteroidField(280, track, 42);
   root.add(asteroidField);
@@ -734,4 +740,83 @@ export function buildTrackMeshes(track, scene) {
   }
 
   return root;
+}
+
+export function flipFields(track) {
+  const flipGroup = new THREE.Group();
+  flipGroup.name = 'flip_fields';
+  if (!track || !track.flips || track.flips.length === 0) return flipGroup;
+
+  const halfW = TRACK_W * 0.5;
+  // Magenta-violet theme flip:[0.62, 0.24, 1.0]
+  const flipColor = new THREE.Color(0.62, 0.24, 1.0);
+  const flipMat = new THREE.MeshBasicMaterial({
+    color: flipColor,
+    transparent: true,
+    opacity: 0.85,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+
+  const f0 = {};
+
+  for (let f = 0; f < track.flips.length; f++) {
+    const [s0, s1] = track.flips[f];
+    const len = s1 - s0;
+    const numSamples = Math.max(12, Math.round(len / 15.0));
+
+    // 1. Longitudinal guide tubes of light along left, right, and center
+    const leftPts = [];
+    const rightPts = [];
+    const centerPts = [];
+
+    for (let i = 0; i <= numSamples; i++) {
+      const s = s0 + (i / numSamples) * len;
+      track.frame(s, f0);
+
+      const pL = new THREE.Vector3().copy(f0.pos)
+        .addScaledVector(f0.R, -halfW - 0.5)
+        .addScaledVector(f0.U, 1.5);
+      leftPts.push(pL);
+
+      const pR = new THREE.Vector3().copy(f0.pos)
+        .addScaledVector(f0.R, halfW + 0.5)
+        .addScaledVector(f0.U, 1.5);
+      rightPts.push(pR);
+
+      const pC = new THREE.Vector3().copy(f0.pos)
+        .addScaledVector(f0.U, FIELD_H * 0.5);
+      centerPts.push(pC);
+    }
+
+    const cLeft = new THREE.CatmullRomCurve3(leftPts);
+    const cRight = new THREE.CatmullRomCurve3(rightPts);
+    const cCenter = new THREE.CatmullRomCurve3(centerPts);
+
+    const tubeGeomL = new THREE.TubeGeometry(cLeft, numSamples * 4, 0.7, 8, false);
+    const tubeGeomR = new THREE.TubeGeometry(cRight, numSamples * 4, 0.7, 8, false);
+    const tubeGeomC = new THREE.TubeGeometry(cCenter, numSamples * 4, 0.45, 8, false);
+
+    flipGroup.add(new THREE.Mesh(tubeGeomL, flipMat));
+    flipGroup.add(new THREE.Mesh(tubeGeomR, flipMat));
+    flipGroup.add(new THREE.Mesh(tubeGeomC, flipMat));
+
+    // 2. Transverse field rings / hoops spaced every ~25m along the flip
+    const ringCount = Math.floor(len / 25.0);
+    const ringGeom = new THREE.TorusGeometry(halfW + 2.0, 0.55, 8, 36);
+
+    for (let r = 0; r <= ringCount; r++) {
+      const s = s0 + (r / ringCount) * len;
+      track.frame(s, f0);
+
+      const ringMesh = new THREE.Mesh(ringGeom, flipMat);
+      const mRing = new THREE.Matrix4().makeBasis(f0.R, f0.U, f0.T);
+      ringMesh.quaternion.setFromRotationMatrix(mRing);
+      ringMesh.position.copy(f0.pos).addScaledVector(f0.U, 2.0);
+      flipGroup.add(ringMesh);
+    }
+  }
+
+  return flipGroup;
 }

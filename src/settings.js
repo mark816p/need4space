@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS = {
   difficulty: 'hard', // 'normal' | 'hard' | 'brutal'
   laptopMode: false, // Performance optimization for low-power or integrated GPUs
   fov: 65,
+  airPitch: true, // Nose control in the air (PITCH_AIR = 14 m/s²)
   volumeMaster: 0.9,
   volumeSFX: 0.85,
   volumeEngine: 0.8,

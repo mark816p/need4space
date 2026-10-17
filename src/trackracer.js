@@ -8,6 +8,8 @@ import { TRACK_W, FIELD_H } from './track.js';
 import { HANDLING, PERKS } from './ships.js';
 import { getChamberDarkness } from './wreckzones.js';
 
+export const PITCH_AIR = 14.0; // 14 m/s² nose control in the air
+
 // Module-level scratch objects to prevent allocations in 120 Hz loop
 const _pCurr = new THREE.Vector3();
 const _pNext = new THREE.Vector3();
@@ -65,10 +67,26 @@ export class TrackRacer {
     this.finished = false;
     this.wrecked = false;
 
-    // Boost & Energy
-    this.boostEnergy = 1.0;      // 0.0 to 1.0
+    // Boost & Energy (with overflow support up to 1.5)
+    this.boostEnergy = 1.0;      // 0.0 to 1.5
     this.isBoosting = false;
     this.boostTimer = 0;
+
+    // Drift state (active when TrackRacer.drifting is true and isPlayer; Rivals never drift)
+    this.isDrifting = false;
+    this.driftDir = 0;           // -1 = left, +1 = right
+    this.driftTime = 0.0;
+    this.driftBuild = 0.0;       // 0..1 builds over 0.5s
+    this.driftTier = 0;          // 0 = none, 1 = blue, 2 = orange, 3 = violet
+    this.driftChain = 0;         // Multiplier counter
+    this.driftChainTimer = 0.0;  // 2.5s timer
+    this.driftYaw = 0.0;         // Nose held ~20° in corner
+
+    // Air Pitch Control (nose down pulls hull to deck sooner, nose up stretches flight)
+    this.airPitch = options.airPitch !== undefined ? options.airPitch : true;
+    this.pitchAccel = 0.0;       // Eased acceleration
+    this.pitchAngle = 0.0;       // Visual tilt angle in air
+    this.isInFlip = false;
 
     // Event bus (consumed by FX, audio, and HUD)
     this.events = [];
@@ -102,6 +120,17 @@ export class TrackRacer {
     this.isBoosting = false;
     this.boostTimer = 0;
     this.boostEnergy = 1.0;
+    this.isDrifting = false;
+    this.driftDir = 0;
+    this.driftTime = 0.0;
+    this.driftBuild = 0.0;
+    this.driftTier = 0;
+    this.driftChain = 0;
+    this.driftChainTimer = 0.0;
+    this.driftYaw = 0.0;
+    this.pitchAccel = 0.0;
+    this.pitchAngle = 0.0;
+    this.isInFlip = false;
     this.wrecked = false;
     this.updatePose(0);
   }
@@ -115,8 +144,9 @@ export class TrackRacer {
     const airbrakeL = input.airbrakeL ?? false;
     const airbrakeR = input.airbrakeR ?? false;
     const boostPressed = input.boost ?? false;
+    const rawPitch = input.pitch ?? 0;
 
-    // 1. Boost Management
+    // 1. Boost Management & Energy Overflow (> 1.0 up to 1.5)
     if (boostPressed && this.boostEnergy > 0.15 && !this.isBoosting) {
       this.isBoosting = true;
       this.boostTimer = this.handling.boostDuration;
@@ -131,8 +161,21 @@ export class TrackRacer {
         this.emit('boost_end');
       }
     } else {
-      // Slow boost refill over time
-      this.boostEnergy = Math.min(1.0, this.boostEnergy + this.handling.boostRefillRate * dt);
+      if (this.boostEnergy > 1.0) {
+        // Boost overflow (> 1.0) bleeds back slowly unless boosted away
+        this.boostEnergy = Math.max(1.0, this.boostEnergy - 0.08 * dt);
+      } else {
+        // Slow boost refill over time
+        this.boostEnergy = Math.min(1.0, this.boostEnergy + this.handling.boostRefillRate * dt);
+      }
+    }
+
+    // Drift Chain Timer decay (2.5s timer)
+    if (this.driftChainTimer > 0) {
+      this.driftChainTimer -= dt;
+      if (this.driftChainTimer <= 0) {
+        this.driftChain = 0;
+      }
     }
 
     // 2. Forward Longitudinal Acceleration & Drag
@@ -159,8 +202,17 @@ export class TrackRacer {
       this.vs = damp(this.vs, targetTop, 2.5, dt);
     }
 
-    // 3. Track Context & Jump Cuts / Gaps
-    const isInGap = this.track.inGap(this.s);
+    // 3. Track Context, Jump Cuts / Gaps & Gravity Flips (§A.7)
+    const isInFlip = this.track.inFlip ? this.track.inFlip(this.s) : false;
+    this.isInFlip = isInFlip;
+    const isInGap = this.track.inGap(this.s) && !isInFlip;
+
+    if (isInFlip && this.inAir) {
+      // Gravity flip field catches and aligns craft with climbing/inverting track frame
+      this.inAir = false;
+      this.h = this.handling.hoverHeight;
+      this.vh = 0;
+    }
 
     if (isInGap && !this.inAir) {
       // Launched into ballistic air flight over jump cut
@@ -178,7 +230,36 @@ export class TrackRacer {
     if (this.inAir) {
       // Ballistic air motion in world space
       this.airTime += dt;
+
+      // Nose control in the air (airPitch setting, disabled during flips)
+      if (this.airPitch && !this.isInFlip) {
+        let targetPitchAcc = 0.0;
+        let targetPitchAngle = 0.0;
+
+        // ↑ / KeyW / ArrowUp: nose down pulls hull back to deck sooner (-14 m/s²)
+        // ↓ / KeyS / ArrowDown: nose up stretches flight (+14 m/s²)
+        if (rawPitch !== 0) {
+          targetPitchAcc = -rawPitch * PITCH_AIR;
+          targetPitchAngle = rawPitch * 0.35;
+        } else if (throttle > 0 && brake === 0) {
+          targetPitchAcc = -throttle * PITCH_AIR;
+          targetPitchAngle = -0.32;
+        } else if (brake > 0 && throttle === 0) {
+          targetPitchAcc = brake * PITCH_AIR;
+          targetPitchAngle = 0.32;
+        }
+
+        // Eased with damp(6)
+        this.pitchAccel = damp(this.pitchAccel, targetPitchAcc, 6.0, dt);
+        this.pitchAngle = damp(this.pitchAngle, targetPitchAngle, 6.0, dt);
+      } else {
+        // Disabled during gravity flips
+        this.pitchAccel = damp(this.pitchAccel, 0, 10.0, dt);
+        this.pitchAngle = damp(this.pitchAngle, 0, 10.0, dt);
+      }
+
       this.airVel.addScaledVector(_vAirGrav, dt);
+      this.airVel.y += this.pitchAccel * dt;
       this.pos.addScaledVector(this.airVel, dt);
 
       // Advance longitudinal s proportional to forward velocity
@@ -186,7 +267,7 @@ export class TrackRacer {
       this.progress += this.vs * dt;
 
       // Check if we reached solid deck to catch landing
-      if (!this.track.inGap(this.s)) {
+      if (!this.track.inGap(this.s) || isInFlip) {
         this.track.frame(this.s, this.frame);
         const toShip = _pCurr.copy(this.pos).sub(this.frame.pos);
         const distU = toShip.dot(this.frame.U);
@@ -206,7 +287,7 @@ export class TrackRacer {
       }
     } else {
       // -----------------------------------------------------------------------
-      // On-Track Physics (Hover cushion, Magnetic hold, Lateral steering)
+      // On-Track Physics (Hover cushion, Magnetic hold, Lateral steering & Drift)
       // -----------------------------------------------------------------------
       // Advance along track
       const ds = this.vs * dt;
@@ -222,10 +303,88 @@ export class TrackRacer {
       this.h += this.vh * dt;
       this.h = clamp(this.h, 0.2, this.handling.hoverHeight * 3.0);
 
+      // Drift handling (behind static TrackRacer.drifting flag; Rivals never drift)
+      const canDrift = TrackRacer.drifting && this.isPlayer && !isInFlip;
+      const wantsDrift = (brake > 0.1 && throttle > 0.1) || (brake > 0.1 && Math.abs(steer) > 0.6);
+
+      if (canDrift) {
+        if (!this.isDrifting && wantsDrift) {
+          // Initiate drift
+          this.isDrifting = true;
+          this.driftDir = Math.sign(steer) || (airbrakeR ? 1 : (airbrakeL ? -1 : 1));
+          this.driftTime = 0.0;
+          this.driftBuild = 0.0;
+          this.driftTier = 0;
+          // Lateral hop feel
+          this.vh += 2.2;
+          this.emit('drift_start', { dir: this.driftDir });
+        } else if (this.isDrifting) {
+          // Check if drift continues
+          const keepDrift = (brake > 0.05 || (Math.abs(steer) > 0.3 && Math.sign(steer) === this.driftDir));
+          if (keepDrift) {
+            this.driftTime += dt;
+            this.driftBuild = Math.min(1.0, this.driftBuild + dt / 0.5);
+
+            // Tier progression: Tier 1 (blue), Tier 2 (orange), Tier 3 (violet)
+            if (this.driftTime >= 2.5) {
+              this.driftTier = 3; // Violet #b042ff
+            } else if (this.driftTime >= 1.6) {
+              this.driftTier = 2; // Orange #ff8800
+            } else if (this.driftTime >= 0.8) {
+              this.driftTier = 1; // Blue #00d2ff
+            } else {
+              this.driftTier = 0;
+            }
+
+            // Nose held ~20° in
+            const targetYaw = this.driftDir * (20.0 * Math.PI / 180.0) * this.driftBuild;
+            this.driftYaw = damp(this.driftYaw, targetYaw, 8.0, dt);
+
+            this.emit('drift_step', { tier: this.driftTier, dir: this.driftDir, time: this.driftTime });
+          } else {
+            // Straight recovery kick on drift exit
+            if (this.driftTier >= 1) {
+              // Energy overflow kick past 1.0 up to 1.5
+              const tierBonus = [0, 0.18, 0.35, 0.50][this.driftTier];
+              this.boostEnergy = clamp(Math.max(this.boostEnergy, 1.0) + tierBonus, 0.0, 1.5);
+
+              // Straight recovery kick forward speed impulse
+              this.vs += 12.0 * this.driftTier;
+
+              // Drift chain increment with 2.5s timer
+              this.driftChain = (this.driftChainTimer > 0) ? this.driftChain + 1 : 1;
+              this.driftChainTimer = 2.5;
+
+              this.emit('drift_kick', {
+                tier: this.driftTier,
+                chain: this.driftChain,
+                energy: this.boostEnergy
+              });
+            }
+
+            this.isDrifting = false;
+            this.driftTime = 0.0;
+            this.driftTier = 0;
+            this.driftYaw = 0.0;
+            this.emit('drift_end');
+          }
+        }
+      } else if (this.isDrifting) {
+        this.isDrifting = false;
+        this.driftTime = 0.0;
+        this.driftTier = 0;
+        this.driftYaw = 0.0;
+      }
+
       // Steering & Airbrake Cornering
       let effectiveSteer = steer;
       if (airbrakeL) effectiveSteer -= this.handling.airbrakeTurn * 0.6;
       if (airbrakeR) effectiveSteer += this.handling.airbrakeTurn * 0.6;
+
+      if (this.isDrifting) {
+        // Turns at 1.3x turn rate
+        effectiveSteer *= 1.3;
+      }
 
       // Lateral acceleration
       this.vx += effectiveSteer * (this.handling.turnRate * 25.0) * dt;
@@ -303,8 +462,14 @@ export class TrackRacer {
       const rollAngle = -steer * 0.32;
       const qRoll = new THREE.Quaternion().setFromAxisAngle(this.frame.T, rollAngle);
       this.quat.copy(_qTrack).multiply(qRoll);
+
+      // Apply drift nose angle (~20° in corner) if drifting
+      if (this.isDrifting && Math.abs(this.driftYaw) > 0.001) {
+        const qYaw = new THREE.Quaternion().setFromAxisAngle(this.frame.U, this.driftYaw);
+        this.quat.multiply(qYaw);
+      }
     } else {
-      // In air: orient forward along air velocity vector
+      // In air: orient forward along air velocity vector, incorporating pitch tilt
       if (this.airVel.length() > 2.0) {
         const fwd = _vWorldVel.copy(this.airVel).normalize();
         const up = new THREE.Vector3(0, 1, 0);
@@ -312,6 +477,12 @@ export class TrackRacer {
         up.crossVectors(fwd, right).normalize();
         _mBasis.makeBasis(right, up, fwd.negate());
         _qAir.setFromRotationMatrix(_mBasis);
+
+        if (Math.abs(this.pitchAngle) > 0.001) {
+          const qPitch = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), this.pitchAngle);
+          _qAir.multiply(qPitch);
+        }
+
         this.quat.slerp(_qAir, 0.15);
       }
     }

@@ -19,6 +19,38 @@ export class FXSystem {
 
     // Wall Scrape Spark Particles
     this._initSparkParticles();
+
+    // Drift FX System (dormant when TrackRacer.drifting is false)
+    this._initDriftFX();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Drift FX (sparks/trails/glow by tier colours blue -> orange -> violet)
+  // ---------------------------------------------------------------------------
+  _initDriftFX() {
+    this.drift = {
+      active: false,
+      tier: 0,
+      tierColors: [
+        new THREE.Color(0x00d2ff), // Tier 1: Blue #00d2ff
+        new THREE.Color(0xff8800), // Tier 2: Orange #ff8800
+        new THREE.Color(0xb042ff)  // Tier 3: Violet #b042ff
+      ],
+      sparks: [],
+      trails: [],
+      glowColor: new THREE.Color(0x00d2ff),
+      update: (dt, racer) => {
+        if (!racer || !racer.isDrifting) {
+          this.drift.active = false;
+          return;
+        }
+        this.drift.active = true;
+        this.drift.tier = racer.driftTier || 0;
+        if (this.drift.tier >= 1 && this.drift.tier <= 3) {
+          this.drift.glowColor.copy(this.drift.tierColors[this.drift.tier - 1]);
+        }
+      }
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -186,6 +218,11 @@ export class FXSystem {
         }
       }
       posAttr.needsUpdate = true;
+    }
+
+    // 4. Update Drift FX
+    if (this.drift) {
+      this.drift.update(dt, playerRacer);
     }
   }
 }
