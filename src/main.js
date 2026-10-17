@@ -6,8 +6,10 @@ import { CURRENT_VERSION } from './changelog.js';
 import { clamp } from './noise.js';
 import { SpaceWorld } from './space.js';
 import { ForestWorld } from './forestworld.js';
+import { IceWorld } from './iceworld.js';
 import { createSpaceTrack, TrackRacer } from './track.js';
 import { createForestTrack } from './foresttrack.js';
+import { createIceTrack } from './icetrack.js';
 import { Ship } from './ship.js';
 import { FreeFlight } from './flight.js';
 import { InputHandler } from './input.js';
@@ -187,7 +189,8 @@ export function hookRacerEvents(app) {
 }
 
 export async function loadCircuit(name = 'space') {
-  status(`Loading ${name === 'forest' ? 'Forest Moon' : 'Space Circuit'}...`, 40);
+  const circuitTitle = name === 'ice' ? 'Ice Planet' : (name === 'forest' ? 'Forest Moon' : 'Space Circuit');
+  status(`Loading ${circuitTitle}...`, 40);
   await nextFrame();
 
   if (app.scene) {
@@ -196,7 +199,11 @@ export async function loadCircuit(name = 'space') {
     }
   }
 
-  if (name === 'forest') {
+  if (name === 'ice') {
+    app.track = createIceTrack();
+    app.trackMesh = app.track.meshes(app.scene);
+    app.world = new IceWorld(app.scene, app.renderer, app.camera, app.track);
+  } else if (name === 'forest') {
     app.track = createForestTrack();
     app.trackMesh = app.track.meshes(app.scene);
     app.world = new ForestWorld(app.scene, app.renderer, app.camera, app.track);

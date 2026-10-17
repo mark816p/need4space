@@ -285,6 +285,14 @@ export class MenuManager {
             <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">A lush jungle world with floating islands, thundering waterfalls, and an ancient colossal reptilian skeleton spanning the track.</p>
             <button class="btn btn-primary" data-circuit="forest" style="width: 100%; border-color: var(--accent-green);">${curCircuit === 'forest' ? 'CURRENT CIRCUIT' : 'ENGAGE FOREST'}</button>
           </div>
+          <div class="circuit-card ${curCircuit === 'ice' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(56, 189, 248, 0.08); border: 1px solid #38bdf8; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">ICE PLANET</span>
+              <span style="font-family: Rajdhani, sans-serif; color: #38bdf8; font-weight: 700;">14.0 KM</span>
+            </div>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">Frozen sea at dusk under northern aurora curtains. Wind-carved arch, glowing crystal gardens, and a deep glacier tunnel.</p>
+            <button class="btn btn-primary" data-circuit="ice" style="width: 100%; border-color: #38bdf8;">${curCircuit === 'ice' ? 'CURRENT CIRCUIT' : 'ENGAGE ICE'}</button>
+          </div>
         </div>
         <div class="dialog-actions">
           <button class="btn" id="btn-circuits-back">RETURN</button>

@@ -10,7 +10,14 @@ export const DEFAULT_SETTINGS = {
   volumeSFX: 0.85,
   volumeEngine: 0.8,
   volumeMusic: 0.65,
-  cameraMode: 'chase'
+  cameraMode: 'chase',
+  // Ice planet switches
+  iceSnow: true,
+  iceDust: true,
+  aurora: true,
+  iceStorm: true,
+  iceGeysers: true,
+  canyonAO: true
 };
 
 const STORAGE_KEY = 'need4space_settings';

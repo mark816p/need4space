@@ -14,7 +14,7 @@
   - [x] P0.10 Input, camera, HUD, FX, menu, settings
 - [x] P1 — Ship It: Pages, Performance, Loading, Laptop Mode, Mobile
 - [x] P2 — Forest Moon (foresttrack.js, atmo.js, abyss.js, islands.js, flora.js, water.js, creatures.js, overgrowth.js, skeleton.js, forestworld.js, circuit selector, lens water & light shaft post passes)
-- [ ] P3 — Ice Planet
+- [x] P3 — Ice Planet (icetrack.js, frost.js, glacier.js, spires.js, blizzard.js, storm.js, iceworld.js, circuit selector entry)
 - [ ] P4 — Derelict v1 & 56m Road
 - [ ] P5 — Drift, Gravity Flips, Air Pitch
 - [ ] P6 — Ice Shelf Crevasse & Desert Planet
