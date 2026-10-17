@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" data-level="normal">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Need4Space</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "meshoptimizer": "https://cdn.jsdelivr.net/npm/meshoptimizer@0.21.0/meshopt_decoder.module.js"
+    }
+  }
+  </script>
+  <link rel="stylesheet" href="src/ui.css?v=a0def054">
+</head>
+<body data-ui="loading">
+  <canvas id="view" tabindex="0"></canvas>
+  <div id="edgeflash"></div>
+  <div id="fps">-- FPS</div>
+  <div id="veil"></div>
+
+  <!-- Loading Screen -->
+  <div id="loading">
+    <div class="l-title">NEED<i>4</i>SPACE</div>
+    <div class="l-bar">
+      <div class="l-prog" id="loadprog"></div>
+    </div>
+    <div id="loadtext">INITIALIZING SYSTEMS...</div>
+  </div>
+
+  <!-- Race HUD -->
+  <div class="hp" id="hud-race">
+    <div class="r-row">
+      <span class="r-lbl">POS</span>
+      <span class="r-val"><span id="rpos">4</span><span class="r-tot"> / <span id="rtot">9</span></span></span>
+    </div>
+    <div class="r-row">
+      <span class="r-lbl">LAP</span>
+      <span class="r-val"><span id="lapn">1</span><span class="r-tot"> / <span id="lapt">3</span></span></span>
+    </div>
+  </div>
+
+  <div id="hud-mode">RACE</div>
+
+  <div class="hp" id="hud-time">
+    <div id="lap">00:00.000</div>
+    <div id="splits">
+      <div class="split-row"><span class="split-lbl">LAST</span><span class="split-val" id="split-last">--:--.---</span></div>
+      <div class="split-row"><span class="split-lbl">BEST</span><span class="split-val" id="split-best">--:--.---</span></div>
+      <div class="split-row"><span class="split-lbl">TOTAL</span><span class="split-val" id="split-total">00:00.000</span></div>
+      <div class="split-row"><span class="split-lbl">SCORE</span><span class="split-val" id="split-score">0</span></div>
+    </div>
+  </div>
+
+  <div class="hp" id="hud-speed">
+    <div class="speed-header">
+      <span id="state">ENGINES OFF</span>
+      <span class="r-lbl" id="cam-name">CHASE</span>
+    </div>
+    <div class="spd-main">
+      <span id="spd">0</span>
+      <span class="spd-unit">KM/H</span>
+    </div>
+    <div id="spdbar">
+      <!-- 32 speed segments dynamically populated in hud.js -->
+    </div>
+    <div class="bar-row" id="bst">
+      <span>ENERGY</span>
+      <div class="bar-track"><div class="bar-fill" style="width: 100%;"></div></div>
+    </div>
+    <div class="bar-row" id="thr">
+      <span>THRUST</span>
+      <div class="bar-track"><div class="bar-fill" style="width: 0%;"></div></div>
+    </div>
+  </div>
+
+  <!-- Minimap -->
+  <div id="mapwrap">
+    <canvas id="map" width="380" height="380"></canvas>
+  </div>
+
+  <!-- Banners and Prompts -->
+  <div id="count">
+    <div class="count-lights">
+      <div class="count-dot" id="cdot1"></div>
+      <div class="count-dot" id="cdot2"></div>
+      <div class="count-dot" id="cdot3"></div>
+    </div>
+    <div id="count-num">3</div>
+  </div>
+  <div id="banner"></div>
+  <div id="msg"></div>
+
+  <!-- Menus and Dialogs -->
+  <div id="menu" class="dialog-overlay hidden"></div>
+  <div id="settings" class="dialog-overlay hidden"></div>
+  <div id="results" class="dialog-overlay hidden"></div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
