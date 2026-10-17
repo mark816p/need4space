@@ -126,6 +126,12 @@ export class MenuManager {
             </div>
           </div>
           <div class="form-row">
+            <label>LAPTOP MODE (PERF)</label>
+            <div class="btn-group">
+              <button class="btn-opt ${s.laptopMode ? 'active' : ''}" id="btn-laptop">${s.laptopMode ? 'ENABLED' : 'DISABLED'}</button>
+            </div>
+          </div>
+          <div class="form-row">
             <label>DIFFICULTY</label>
             <div class="btn-group">
               <button class="btn-opt ${s.difficulty === 'normal' ? 'active' : ''}" data-d="normal">NORMAL</button>
@@ -157,27 +163,44 @@ export class MenuManager {
     `;
 
     // Bind graphics buttons
-    this.elSettings.querySelectorAll('[data-q]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const q = e.target.dataset.q;
+    if (this.elSettings.querySelectorAll) {
+      this.elSettings.querySelectorAll('[data-q]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const q = e.target.dataset.q;
+          if (this.app.settings) {
+            this.app.settings.set('quality', q);
+            this.app.settings.apply(this.app);
+          }
+          this.showOptions();
+        });
+      });
+    }
+
+    // Bind laptop mode toggle
+    const btnLaptop = this.elSettings.querySelector ? this.elSettings.querySelector('#btn-laptop') : null;
+    if (btnLaptop) {
+      btnLaptop.addEventListener('click', () => {
         if (this.app.settings) {
-          this.app.settings.set('quality', q);
+          const cur = !!this.app.settings.get('laptopMode');
+          this.app.settings.set('laptopMode', !cur);
           this.app.settings.apply(this.app);
         }
         this.showOptions();
       });
-    });
+    }
 
     // Bind difficulty buttons
-    this.elSettings.querySelectorAll('[data-d]').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const d = e.target.dataset.d;
-        if (this.app.settings) {
-          this.app.settings.set('difficulty', d);
-        }
-        this.showOptions();
+    if (this.elSettings.querySelectorAll) {
+      this.elSettings.querySelectorAll('[data-d]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const d = e.target.dataset.d;
+          if (this.app.settings) {
+            this.app.settings.set('difficulty', d);
+          }
+          this.showOptions();
+        });
       });
-    });
+    }
 
     // Volume sliders
     const bindSlider = (id, key) => {

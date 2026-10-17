@@ -4,7 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Need4Space</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,10 90,85 50,70 10,85' fill='%2300d2ff'/></svg>">
+  <link rel="manifest" href="manifest.json">
+  <meta name="description" content="Need4Space — High-speed anti-gravity space circuit racer in plain ES modules and Three.js">
+  <meta property="og:title" content="Need4Space">
+  <meta property="og:description" content="High-speed anti-gravity space circuit racer">
+  <meta name="theme-color" content="#00d2ff">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
@@ -17,7 +22,7 @@
     }
   }
   </script>
-  <link rel="stylesheet" href="src/ui.css?v=3e8def3d">
+  <link rel="stylesheet" href="src/ui.css?v=2aed568c">
 </head>
 <body data-ui="loading">
   <canvas id="view" tabindex="0"></canvas>
@@ -96,6 +101,19 @@
   </div>
   <div id="banner"></div>
   <div id="msg"></div>
+
+  <!-- Mobile Touch Controls Layer -->
+  <div id="touch-layer">
+    <div class="touch-zone touch-left">
+      <button class="t-btn" id="t-left" aria-label="Steer Left">◀</button>
+      <button class="t-btn" id="t-right" aria-label="Steer Right">▶</button>
+    </div>
+    <div class="touch-zone touch-right">
+      <button class="t-btn t-btn-boost" id="t-boost" aria-label="Boost">BOOST</button>
+      <button class="t-btn t-btn-brake" id="t-brake" aria-label="Brake">BRAKE</button>
+      <button class="t-btn t-btn-thr" id="t-thr" aria-label="Throttle">GO</button>
+    </div>
+  </div>
 
   <!-- Menus and Dialogs -->
   <div id="menu" class="dialog-overlay hidden"></div>

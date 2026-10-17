@@ -4,6 +4,7 @@
 export const DEFAULT_SETTINGS = {
   quality: 'high', // 'low' | 'medium' | 'high' | 'ultra'
   difficulty: 'hard', // 'normal' | 'hard' | 'brutal'
+  laptopMode: false, // Performance optimization for low-power or integrated GPUs
   fov: 65,
   volumeMaster: 0.9,
   volumeSFX: 0.85,
@@ -62,15 +63,30 @@ export class SettingsManager {
       if (app.audio.musicGain) app.audio.musicGain.gain.value = this.data.volumeMusic;
     }
 
-    // 2. Graphics Quality Presets
+    // 2. Graphics Quality Presets & Laptop Mode
+    const isLaptop = !!this.data.laptopMode;
     const q = this.data.quality;
+
     if (app.renderer) {
-      const dpr = (q === 'ultra') ? 2.0 : (q === 'high' ? Math.min(window.devicePixelRatio || 1, 1.5) : 1.0);
+      let dpr = 1.0;
+      if (isLaptop) {
+        dpr = 1.0;
+      } else {
+        const winDpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
+        dpr = (q === 'ultra') ? 2.0 : (q === 'high' ? Math.min(winDpr, 1.5) : 1.0);
+      }
       app.renderer.setPixelRatio(dpr);
     }
 
     if (app.post) {
-      if (q === 'low') {
+      if (isLaptop) {
+        // Laptop Mode: downscale and disable heavy passes (SSR, GTAO), keep lightweight bloom and look composite
+        app.post.enabled = true;
+        app.post.enableAO = false;
+        app.post.enableSSR = false;
+        app.post.enableBloom = true;
+        app.post.enableLook = true;
+      } else if (q === 'low') {
         app.post.enabled = false;
       } else if (q === 'medium') {
         app.post.enabled = true;
@@ -78,13 +94,7 @@ export class SettingsManager {
         app.post.enableSSR = false;
         app.post.enableBloom = true;
         app.post.enableLook = true;
-      } else if (q === 'high') {
-        app.post.enabled = true;
-        app.post.enableAO = true;
-        app.post.enableSSR = true;
-        app.post.enableBloom = true;
-        app.post.enableLook = true;
-      } else if (q === 'ultra') {
+      } else if (q === 'high' || q === 'ultra') {
         app.post.enabled = true;
         app.post.enableAO = true;
         app.post.enableSSR = true;

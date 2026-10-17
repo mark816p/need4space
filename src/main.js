@@ -103,6 +103,8 @@ window.__feather = {
       racerLap: app.playerRacer ? app.playerRacer.lap : 0,
       postReady: !!app.post,
       postEnabled: !!(app.post && app.post.enabled),
+      laptopMode: !!(app.settings && app.settings.get('laptopMode')),
+      touchActive: typeof document !== 'undefined' && document.body.classList.contains('touch-active'),
       audioReady: !!app.audio,
       audioMuted: !!(app.audio && app.audio.isMuted),
       musicPlaying: !!(app.music && app.music.isPlaying),
@@ -256,6 +258,16 @@ async function boot() {
   app.menu = new MenuManager(app);
   app.settings.apply(app);
 
+  status('Pre-compiling Shaders & Warming GPU Pipelines...', 99);
+  await nextFrame();
+  if (app.renderer && app.scene && app.camera) {
+    try {
+      app.renderer.compile(app.scene, app.camera);
+    } catch (e) {
+      console.warn('[Renderer] Shader precompilation notice:', e);
+    }
+  }
+
   status('Systems Flight Ready', 100);
   await nextFrame();
 
@@ -265,6 +277,7 @@ async function boot() {
 
   let frames = 0;
   let lastTime = performance.now();
+  let lowFpsTime = 0;
   let lastCdSec = 5;
   let lastLapNum = 1;
   const _fCam = {};
@@ -288,6 +301,20 @@ async function boot() {
     if (now - lastTime >= 1000) {
       app.fps = Math.round((frames * 1000) / (now - lastTime));
       if (elFps) elFps.textContent = `${app.fps} FPS`;
+
+      // Laptop mode auto-detection (<45 FPS sustained for 2 seconds)
+      if (app.fps > 0 && app.fps < 45) {
+        lowFpsTime += (now - lastTime) / 1000;
+        if (lowFpsTime >= 2.0 && app.settings && !app.settings.get('laptopMode')) {
+          console.log('[Performance] Sustained low FPS detected (<45 for 2s) — engaging Laptop Mode');
+          app.settings.set('laptopMode', true);
+          app.settings.apply(app);
+          if (app.hud) app.hud.showPrompt('LAPTOP MODE ACTIVATED (OPTIMIZED)');
+        }
+      } else if (app.fps >= 45) {
+        lowFpsTime = 0;
+      }
+
       frames = 0;
       lastTime = now;
     }

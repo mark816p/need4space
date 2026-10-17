@@ -1,0 +1,17 @@
+{
+  "name": "Need4Space Anti-Gravity Racer",
+  "short_name": "Need4Space",
+  "description": "High-speed anti-gravity space circuit racer",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#05070c",
+  "theme_color": "#00d2ff",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><polygon points='50,10 90,85 50,70 10,85' fill='%2300d2ff'/></svg>",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

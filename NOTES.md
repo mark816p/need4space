@@ -12,7 +12,7 @@
   - [x] P0.8 Post pipeline (post.js, look.js, composer)
   - [x] P0.9 Audio and music (audio.js, music.js)
   - [x] P0.10 Input, camera, HUD, FX, menu, settings
-- [ ] P1 — Ship It: Pages, Performance, Loading, Laptop Mode, Mobile
+- [x] P1 — Ship It: Pages, Performance, Loading, Laptop Mode, Mobile
 - [ ] P2 — Forest Moon
 - [ ] P3 — Ice Planet
 - [ ] P4 — Derelict v1 & 56m Road

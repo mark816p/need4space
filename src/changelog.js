@@ -3,6 +3,17 @@
 
 export const CHANGELOG = [
   {
+    version: '1.0.1',
+    title: 'Ship It',
+    date: '2024-10-14',
+    notes: [
+      'Laptop mode with adaptive dynamic resolution and pass degradation',
+      'Shader warm-up precompilation eliminating first-lap hitches',
+      'Touch and gamepad virtual controls for mobile and handheld devices',
+      'Web manifest and social metadata for offline and standalone play'
+    ]
+  },
+  {
     version: '1.0',
     title: 'First flight',
     date: '2024-10-11',

@@ -4,6 +4,13 @@
 export class InputHandler {
   constructor() {
     this.keys = new Set();
+    this.touch = {
+      steerLeft: false,
+      steerRight: false,
+      throttle: false,
+      brake: false,
+      boost: false
+    };
     this.raw = {
       throttle: 0,
       brake: 0,
@@ -29,7 +36,53 @@ export class InputHandler {
     if (typeof window !== 'undefined') {
       window.addEventListener('keydown', this._onKeyDown);
       window.addEventListener('keyup', this._onKeyUp);
+      this._initTouchControls();
     }
+  }
+
+  _initTouchControls() {
+    if (typeof document === 'undefined') return;
+
+    // Auto-detect mobile / coarse pointer device
+    const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (isCoarse || hasTouch) {
+      document.body.classList.add('touch-active');
+    }
+
+    // Also activate touch layer on first touch event
+    window.addEventListener('touchstart', () => {
+      document.body.classList.add('touch-active');
+    }, { once: true, passive: true });
+
+    // Helper to bind button events for both touch and pointer
+    const bindBtn = (id, prop) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const down = (e) => {
+        if (e.cancelable) e.preventDefault();
+        this.touch[prop] = true;
+      };
+      const up = (e) => {
+        if (e.cancelable) e.preventDefault();
+        this.touch[prop] = false;
+      };
+
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('pointerup', up);
+      el.addEventListener('pointercancel', up);
+      el.addEventListener('pointerleave', up);
+      el.addEventListener('touchstart', down, { passive: false });
+      el.addEventListener('touchend', up, { passive: false });
+      el.addEventListener('touchcancel', up, { passive: false });
+    };
+
+    bindBtn('t-left', 'steerLeft');
+    bindBtn('t-right', 'steerRight');
+    bindBtn('t-thr', 'throttle');
+    bindBtn('t-brake', 'brake');
+    bindBtn('t-boost', 'boost');
   }
 
   _onKeyDown(e) {
@@ -54,19 +107,24 @@ export class InputHandler {
     // Keyboard state
     let throttle = 0;
     if (k.has('KeyW') || k.has('ArrowUp')) throttle += 1.0;
+    if (this.touch.throttle) throttle = Math.max(throttle, 1.0);
 
     let brake = 0;
     if (k.has('KeyS') || k.has('ArrowDown')) brake += 1.0;
+    if (this.touch.brake) brake = Math.max(brake, 1.0);
 
     let steer = 0;
     if (k.has('KeyD') || k.has('ArrowRight')) steer += 1.0;
     if (k.has('KeyA') || k.has('ArrowLeft')) steer -= 1.0;
+    if (this.touch.steerRight) steer += 1.0;
+    if (this.touch.steerLeft) steer -= 1.0;
+    steer = Math.max(-1.0, Math.min(1.0, steer));
 
     let pitch = 0;
     if (k.has('KeyI')) pitch += 1.0;
     if (k.has('KeyK')) pitch -= 1.0;
 
-    const boost = k.has('ShiftLeft') || k.has('ShiftRight');
+    let boost = k.has('ShiftLeft') || k.has('ShiftRight') || this.touch.boost;
     const airbrakeL = k.has('KeyQ');
     const airbrakeR = k.has('KeyE');
     const slam = k.has('Space');

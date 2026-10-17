@@ -541,6 +541,59 @@ body[data-ui="menu"] #mapwrap {
 body.touch-active #touch-layer {
   display: block;
 }
+.touch-zone {
+  position: absolute;
+  bottom: 24px;
+  display: flex;
+  gap: 16px;
+  pointer-events: auto;
+}
+.touch-left {
+  left: 24px;
+}
+.touch-right {
+  right: 24px;
+  align-items: flex-end;
+}
+.t-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(10, 18, 30, 0.65);
+  border: 2px solid rgba(0, 210, 255, 0.4);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  touch-action: manipulation;
+  backdrop-filter: blur(8px);
+}
+.t-btn:active {
+  background: rgba(0, 210, 255, 0.35);
+  border-color: var(--accent-cyan);
+  transform: scale(0.95);
+}
+.t-btn-thr {
+  width: 84px;
+  height: 84px;
+  background: rgba(0, 150, 255, 0.25);
+  border-color: #00d2ff;
+  font-size: 16px;
+}
+.t-btn-boost {
+  background: rgba(255, 50, 100, 0.25);
+  border-color: #ff3377;
+  font-size: 12px;
+}
+.t-btn-brake {
+  background: rgba(255, 120, 0, 0.2);
+  border-color: #ffaa00;
+  font-size: 12px;
+}
 
 /* Dialog Cards & Forms */
 .dialog-card {
