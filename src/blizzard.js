@@ -35,12 +35,14 @@ export class BlizzardWeather {
         uTime: { value: 0 },
         uSunDir: { value: new THREE.Vector3(-0.70, 0.139, 0.70).normalize() },
         uCamPos: { value: new THREE.Vector3(0, 0, 0) },
-        uWind: { value: new THREE.Vector3(14.0, -4.5, 14.0) } // SW to NE wind
+        uWind: { value: new THREE.Vector3(14.0, -4.5, 14.0) }, // SW to NE wind
+        uShelter: { value: 0.0 } // 1.0 = fully sheltered in crevasse/tunnel, no snow smear
       },
       vertexShader: `
         uniform float uTime;
         uniform vec3 uCamPos;
         uniform vec3 uWind;
+        uniform float uShelter;
         attribute vec3 aSeed;
         varying float vAlpha;
         varying float vGlint;
@@ -63,7 +65,8 @@ export class BlizzardWeather {
           float twinkle = sin(uTime * 8.0 + aSeed.y * 62.8) * 0.5 + 0.5;
           vGlint = pow(sunDot, 12.0) * twinkle * 2.5;
 
-          vAlpha = nearFade * farFade * (0.35 + aSeed.z * 0.45);
+          // Shelter factor suppresses snow inside crevasse walls
+          vAlpha = nearFade * farFade * (0.35 + aSeed.z * 0.45) * (1.0 - uShelter);
 
           vec4 mvPosition = modelViewMatrix * vec4(worldPos, 1.0);
           gl_PointSize = (3.5 + aSeed.x * 4.0) * (300.0 / -mvPosition.z);
@@ -128,12 +131,14 @@ export class BlizzardWeather {
     scene.add(this.group);
   }
 
-  update(dt, camera) {
+  update(dt, camera, inCrevasse = false) {
     if (this.snowMat && this.snowMat.uniforms.uTime) {
       this.snowMat.uniforms.uTime.value += dt;
       if (camera) {
         this.snowMat.uniforms.uCamPos.value.copy(camera.position);
       }
+      const targetShelter = inCrevasse ? 1.0 : 0.0;
+      this.snowMat.uniforms.uShelter.value += (targetShelter - this.snowMat.uniforms.uShelter.value) * Math.min(1.0, dt * 5.0);
     }
 
     // Geyser eruption cycle

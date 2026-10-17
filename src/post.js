@@ -391,6 +391,7 @@ const LookCompositeShader = {
     bloomStrength: { value: 0.65 },
     waterSpray: { value: 0.0 },
     speedRatio: { value: 0.0 },
+    heatShimmer: { value: 0.0 },
     enableShafts: { value: 1.0 },
     enableAO: { value: 1.0 },
     enableSSR: { value: 1.0 },
@@ -420,6 +421,7 @@ const LookCompositeShader = {
     uniform float bloomStrength;
     uniform float waterSpray;
     uniform float speedRatio;
+    uniform float heatShimmer;
     uniform float enableShafts;
     uniform float enableAO;
     uniform float enableSSR;
@@ -444,6 +446,14 @@ const LookCompositeShader = {
 
       // Lens Water Pass: refractive draining film and outward-blown drops
       vec2 sampleUv = vUv;
+
+      // Heat Shimmer Pass: atmospheric bending along the rising horizon
+      if (heatShimmer > 0.005) {
+        float horizonBand = smoothstep(0.35, 0.52, vUv.y) * (1.0 - smoothstep(0.52, 0.72, vUv.y));
+        float wave = sin(vUv.y * 65.0 + time * 9.0) * cos(vUv.x * 45.0 + time * 6.0);
+        sampleUv.y += wave * 0.0035 * heatShimmer * horizonBand;
+      }
+
       if (waterSpray > 0.005) {
         vec2 dropUv = vUv * vec2(16.0, 9.0) + dir * (speedRatio * 1.8 * waterSpray);
         vec2 id = floor(dropUv);
@@ -804,6 +814,7 @@ export class PostPipeline {
     uComp.bloomStrength.value = this.look.currentBloomStrength;
     uComp.waterSpray.value = this.waterSpray;
     uComp.speedRatio.value = Math.min(1.5, (telemetry.speed || 0) / 250.0);
+    uComp.heatShimmer.value = (telemetry.heat || (telemetry.world && telemetry.world.heat)) ? 1.0 : 0.0;
     uComp.enableShafts.value = this.enableShafts ? 1.0 : 0.0;
 
     uComp.enableAO.value = this.enableAO ? 1.0 : 0.0;

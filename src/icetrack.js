@@ -46,30 +46,31 @@ export function createIceTrack() {
       y -= 15.0;
       bank = 0;
     } else if (i >= 18 && i <= 20) {
-      name = 'Frozen Falls Corkscrew';
-      // 360-degree barrel roll down the glacial face
-      const rollFrac = (i - 18) / 2.0;
-      bank = rollFrac * 360.0;
-      y -= 25.0;
+      name = 'Ice Shelf Crevasse Dive';
+      // Dive into ~270m thick glacier shelf
+      y -= 32.0;
+      bank = 0;
     } else if (i >= 22 && i <= 24) {
-      name = 'Crevasse Shelf S-Bends';
-      bank = (i % 2 === 0 ? 18 : -18);
-      y += 10.0;
+      name = 'Crevasse Canyon Slot (Gentle S-Bend)';
+      // Smooth, easier bend after the dive through the ice shelf
+      bank = (i % 2 === 0 ? 12 : -12);
+      y -= 10.0;
     } else if (i === 26) {
       name = 'Second Rift Launch';
       y += 24.0;
       bank = 0;
-    } else if (i === 28) {
-      name = 'Sea Loop Approach';
-      y += 45.0;
+    } else if (i === 27) {
+      name = 'Sea Floes Gravity Flip Incline';
+      y += 18.0;
       bank = 0;
-    } else if (i === 29) {
-      name = 'Sea Loop Zenith (Inverted)';
-      y += 110.0;
-      bank = 0;
-    } else if (i === 30) {
-      name = 'Sea Loop Descent';
-      y += 45.0;
+    } else if (i >= 28 && i <= 30) {
+      name = 'Inverted Flight Over Floes';
+      // Racing upside-down over broken sea ice between two gravity flips
+      y += 28.0;
+      bank = 180;
+    } else if (i === 31) {
+      name = 'Second Gravity Flip Recovery';
+      y += 10.0;
       bank = 0;
     } else if (i >= 32 && i <= 34) {
       name = 'Aurora Basin High-Speed Curve';
@@ -100,8 +101,10 @@ export function createIceTrack() {
       [2050, 2180], // First Rift Jump
       [9800, 9940], // Second Rift Jump
     ],
-    loops: [
-      [11200, 11800], // Sea Loop over the open floes
+    // Gravity flips: upside-down over the floes between two flips
+    flips: [
+      [10400, 10640], // Flip 1: Rolls 180° into inverted flight over floes
+      [11600, 11840], // Flip 2: Rolls 180° back upright
     ],
     // Glacier cave
     tunnels: [

@@ -290,8 +290,16 @@ export class MenuManager {
               <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">ICE PLANET</span>
               <span style="font-family: Rajdhani, sans-serif; color: #38bdf8; font-weight: 700;">14.0 KM</span>
             </div>
-            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">Frozen sea at dusk under northern aurora curtains. Wind-carved arch, glowing crystal gardens, and a deep glacier tunnel.</p>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">Glacier shelf split by a 270m crevasse, upside-down run over sea ice floes between gravity flips, and frozen falls.</p>
             <button class="btn btn-primary" data-circuit="ice" style="width: 100%; border-color: #38bdf8;">${curCircuit === 'ice' ? 'CURRENT CIRCUIT' : 'ENGAGE ICE'}</button>
+          </div>
+          <div class="circuit-card ${curCircuit === 'desert' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(245, 158, 11, 0.08); border: 1px solid #f59e0b; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">DESERT PLANET</span>
+              <span style="font-family: Rajdhani, sans-serif; color: #f59e0b; font-weight: 700;">14.3 KM</span>
+            </div>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">Arid wasteland under low WNW sunset. Threads a hollow fallen skyscraper, layered sandstone gorge, two chasm jumps, and a towering sandstorm.</p>
+            <button class="btn btn-primary" data-circuit="desert" style="width: 100%; border-color: #f59e0b;">${curCircuit === 'desert' ? 'CURRENT CIRCUIT' : 'ENGAGE DESERT'}</button>
           </div>
         </div>
         <div class="dialog-actions">

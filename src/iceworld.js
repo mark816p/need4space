@@ -6,6 +6,7 @@ import { GlacierSea } from './glacier.js';
 import { SpiresAndGlacierCave } from './spires.js';
 import { BlizzardWeather } from './blizzard.js';
 import { HorizonStorm } from './storm.js';
+import { IceShelf } from './shelf.js';
 
 export class IceWorld {
   constructor(scene, renderer, camera, track) {
@@ -66,6 +67,9 @@ export class IceWorld {
 
     // 6. Horizon Storm Thunderheads & Lightning
     this.storm = new HorizonStorm(this.scene);
+
+    // 7. Glacier Ice Shelf Crevasse (~270m thick slab, slot, bridges, bergs, falls)
+    this.shelf = new IceShelf(this.scene, track);
 
     this.time = 0;
     this.ready = true;
@@ -129,14 +133,17 @@ export class IceWorld {
   update(dt, camera, shipPos, s, renderer) {
     this.time += dt;
 
+    const inCrevasse = (this.shelf && typeof s === 'number') ? this.shelf.inCrevasse(s) : false;
+
     if (this.atmoDome) this.atmoDome.update(dt);
     if (this.glacier) this.glacier.update(dt);
-    if (this.blizzard) this.blizzard.update(dt, camera);
+    if (this.shelf) this.shelf.update(dt);
+    if (this.blizzard) this.blizzard.update(dt, camera, inCrevasse);
     if (this.storm) this.storm.update(dt);
 
     // Dynamic environmental lightning flicker from distant storm
     if (this.storm && this.storm.flashIntensity > 0.05) {
-      this.sun.intensity = 3.2 + this.storm.flashIntensity * 1.8;
+      this.sun.intensity = 3.2 + this.storm.flashIntensity * 2.8;
     } else {
       this.sun.intensity = 3.2;
     }

@@ -107,8 +107,8 @@ export class HorizonStorm {
   }
 
   _triggerStrike() {
-    this.strikeDuration = 0.28;
-    this.flashIntensity = 1.0;
+    this.strikeDuration = 0.32;
+    this.flashIntensity = 1.6;
 
     // Generate procedural jagged bolt from east cloud base down toward sea horizon
     const startX = 42000.0 + (Math.random() - 0.5) * 15000.0;

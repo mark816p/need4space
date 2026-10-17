@@ -7,9 +7,11 @@ import { clamp } from './noise.js';
 import { SpaceWorld } from './space.js';
 import { ForestWorld } from './forestworld.js';
 import { IceWorld } from './iceworld.js';
+import { DesertWorld } from './desertworld.js';
 import { createSpaceTrack, TrackRacer } from './track.js';
 import { createForestTrack } from './foresttrack.js';
 import { createIceTrack } from './icetrack.js';
+import { createDesertTrack } from './deserttrack.js';
 import { Ship } from './ship.js';
 import { FreeFlight } from './flight.js';
 import { InputHandler } from './input.js';
@@ -189,7 +191,7 @@ export function hookRacerEvents(app) {
 }
 
 export async function loadCircuit(name = 'space') {
-  const circuitTitle = name === 'ice' ? 'Ice Planet' : (name === 'forest' ? 'Forest Moon' : 'Space Circuit');
+  const circuitTitle = name === 'desert' ? 'Desert Planet' : (name === 'ice' ? 'Ice Planet' : (name === 'forest' ? 'Forest Moon' : 'Space Circuit'));
   status(`Loading ${circuitTitle}...`, 40);
   await nextFrame();
 
@@ -199,7 +201,11 @@ export async function loadCircuit(name = 'space') {
     }
   }
 
-  if (name === 'ice') {
+  if (name === 'desert') {
+    app.track = createDesertTrack();
+    app.trackMesh = app.track.meshes(app.scene);
+    app.world = new DesertWorld(app.scene, app.renderer, app.camera, app.track);
+  } else if (name === 'ice') {
     app.track = createIceTrack();
     app.trackMesh = app.track.meshes(app.scene);
     app.world = new IceWorld(app.scene, app.renderer, app.camera, app.track);
@@ -216,6 +222,7 @@ export async function loadCircuit(name = 'space') {
   const diff = app.settings ? app.settings.get('difficulty') : 'hard';
   const airPitch = app.settings ? app.settings.get('airPitch') : true;
   app.race = new Race(app.track, { difficulty: diff, numLaps: 3, airPitch });
+  if (app.world) app.world.race = app.race;
   app.race.attachToScene(app.scene);
   app.playerRacer = app.race.playerRacer;
   app.ship = app.playerRacer.ship;
@@ -525,7 +532,8 @@ async function boot() {
         speed: app.playerRacer ? app.playerRacer.vs : (app.flight ? app.flight.speed : 0),
         lateralG: app.playerRacer ? (app.playerRacer.vx || 0) : 0,
         isBoosting: app.playerRacer ? app.playerRacer.isBoosting : false,
-        hitImpulse: (app.playerRacer && app.playerRacer.ship) ? (app.playerRacer.ship.hitIntensity || 0) : 0
+        hitImpulse: (app.playerRacer && app.playerRacer.ship) ? (app.playerRacer.ship.hitIntensity || 0) : 0,
+        world: app.world
       };
 
       if (app.audio) {

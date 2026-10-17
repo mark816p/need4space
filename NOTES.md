@@ -17,7 +17,7 @@
 - [x] P3 — Ice Planet (icetrack.js, frost.js, glacier.js, spires.js, blizzard.js, storm.js, iceworld.js, circuit selector entry)
 - [x] P4 — Derelict v1 & 56m Road (wreckplan.js, wreckzones.js, wreck.js, 56m road width, dynamic headlights, space circuit derelict threading)
 - [x] P5 — Drift, Gravity Flips, Air Pitch (TrackRacer.drifting=false, gravity flips with 180 turnover and flipFields, airPitch=14 m/s2, camera rollFollow=1)
-- [ ] P6 — Ice Shelf Crevasse & Desert Planet
+- [x] P6 — Ice Shelf Crevasse & Desert Planet (shelf.js, ice 14km lap with crevasse & dual gravity flips, desert.js, deserttrack.js, dunes.js, sandstone.js, ruins.js, haze.js, simoom.js, 14.3km desert circuit, sandstorm closed-form optical depth)
 - [ ] P7 — Forest Cave & Derelict Colossus
 - [ ] P8 — Playtest Tuning, License, v1.1 "Four Worlds"
 - [ ] P9 — Global Scoreboard & Perf Campaign
