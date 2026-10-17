@@ -9,7 +9,7 @@
   - [x] P0.5 Ship + free flight (ship.js, shipmodels.js, flight.js)
   - [x] P0.6 TrackRacer physics (track.js)
   - [x] P0.7 Race + AI (race.js)
-  - [ ] P0.8 Post pipeline (post.js, look.js, composer)
+  - [x] P0.8 Post pipeline (post.js, look.js, composer)
   - [ ] P0.9 Audio and music (audio.js, music.js)
   - [ ] P0.10 Input, camera, HUD, FX, menu, settings
 - [ ] P1 — Ship It: Pages, Performance, Loading, Laptop Mode, Mobile

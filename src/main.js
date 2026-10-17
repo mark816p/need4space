@@ -10,6 +10,7 @@ import { Ship } from './ship.js';
 import { FreeFlight } from './flight.js';
 import { InputHandler } from './input.js';
 import { Race } from './race.js';
+import { PostPipeline } from './post.js';
 
 // Global state container
 export const app = {
@@ -25,6 +26,7 @@ export const app = {
   input: null,
   race: null,
   playerRacer: null,
+  post: null,
   clock: new THREE.Clock(),
   running: false,
   paused: false,
@@ -85,6 +87,8 @@ window.__feather = {
       racerSpeed: app.playerRacer ? app.playerRacer.vs : 0,
       racerProgress: app.playerRacer ? app.playerRacer.progress : 0,
       racerLap: app.playerRacer ? app.playerRacer.lap : 0,
+      postReady: !!app.post,
+      postEnabled: !!(app.post && app.post.enabled),
     };
   },
   async advance(seconds) {
@@ -100,7 +104,9 @@ window.__feather = {
         app.flight.step(dt, { throttle: 1.0 });
       }
     }
-    if (app.renderer && app.scene && app.camera) {
+    if (app.post) {
+      app.post.render(dt, { speed: app.playerRacer ? app.playerRacer.vs : 0 });
+    } else if (app.renderer && app.scene && app.camera) {
       app.renderer.render(app.scene, app.camera);
     }
     return window.__feather.state();
@@ -153,7 +159,14 @@ async function boot() {
     app.camera.aspect = window.innerWidth / window.innerHeight;
     app.camera.updateProjectionMatrix();
     app.renderer.setSize(window.innerWidth, window.innerHeight);
+    if (app.post) {
+      app.post.setSize(window.innerWidth, window.innerHeight);
+    }
   });
+
+  status('Initializing Post-Processing Pipeline...', 20);
+  await nextFrame();
+  app.post = new PostPipeline(app.renderer, app.scene, app.camera);
 
   status('Creating Space Environment...', 30);
   await nextFrame();
@@ -311,7 +324,17 @@ async function boot() {
         app.world.update(dt, app.camera, null, 0, app.renderer);
         app.world.preRender(app.renderer);
       }
-      if (app.scene && app.camera) {
+
+      const telemetry = {
+        speed: app.playerRacer ? app.playerRacer.vs : (app.flight ? app.flight.speed : 0),
+        lateralG: app.playerRacer ? (app.playerRacer.vx || 0) : 0,
+        isBoosting: app.playerRacer ? app.playerRacer.isBoosting : false,
+        hitImpulse: (app.playerRacer && app.playerRacer.ship) ? (app.playerRacer.ship.hitIntensity || 0) : 0
+      };
+
+      if (app.post) {
+        app.post.render(dt, telemetry);
+      } else if (app.scene && app.camera) {
         app.renderer.render(app.scene, app.camera);
       }
     }
