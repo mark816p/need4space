@@ -3,6 +3,7 @@
 
 import * as THREE from 'three';
 import { clamp, lerp } from './noise.js';
+import { buildTrackMeshes } from './trackmesh.js';
 
 export const STEP = 2.0;           // 2 m frame spacing along track
 export const TRACK_W_V1 = 44.0;    // 44 m road width in v1.0 (expanded to 56 m in P4)
@@ -400,6 +401,10 @@ export class Track {
     const steerDir = _tB.dot(_rA); // Positive = turning right, negative = turning left
     // Apex clipping: hug inside edge on corners, center on straights
     return clamp(-steerDir * (TRACK_W * 0.38), -TRACK_W * 0.35, TRACK_W * 0.35);
+  }
+
+  meshes(scene) {
+    return buildTrackMeshes(this, scene);
   }
 }
 

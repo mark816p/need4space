@@ -5,7 +5,7 @@
   - [x] P0.1 Scaffold, server, loader, noise
   - [x] P0.2 Space backdrop (space.js, celestial.js)
   - [x] P0.3 Track class (track.js)
-  - [ ] P0.4 Track meshes, deck and hull textures (deck.js, hull.js, rock.js)
+  - [x] P0.4 Track meshes, deck and hull textures (deck.js, hull.js, rock.js)
   - [ ] P0.5 Ship + free flight (ship.js, shipmodels.js, flight.js)
   - [ ] P0.6 TrackRacer physics (track.js)
   - [ ] P0.7 Race + AI (race.js)

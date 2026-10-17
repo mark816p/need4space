@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { CURRENT_VERSION } from './changelog.js';
 import { SpaceWorld } from './space.js';
+import { createSpaceTrack } from './track.js';
 
 // Global state container
 export const app = {
@@ -12,6 +13,8 @@ export const app = {
   scene: null,
   camera: null,
   world: null,
+  track: null,
+  trackMesh: null,
   race: null,
   playerRacer: null,
   clock: new THREE.Clock(),
@@ -66,6 +69,8 @@ window.__feather = {
       mode: app.mode,
       ready: document.body.dataset.ui !== 'loading',
       fps: app.fps || 0,
+      trackReady: !!(app.track && app.trackMesh),
+      trackLength: app.track ? app.track.length : 0,
     };
   },
   async advance(seconds) {
@@ -131,11 +136,16 @@ async function boot() {
     app.renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  status('Creating Space Environment...', 40);
+  status('Creating Space Environment...', 30);
   await nextFrame();
   app.world = new SpaceWorld(app.scene, app.renderer, app.camera);
 
-  status('Space World Ready', 100);
+  status('Building Space Circuit Meshes...', 70);
+  await nextFrame();
+  app.track = createSpaceTrack();
+  app.trackMesh = app.track.meshes(app.scene);
+
+  status('Space Circuit Ready', 100);
   await nextFrame();
 
   // Hide loading screen and switch to menu/active state
@@ -144,6 +154,8 @@ async function boot() {
 
   let frames = 0;
   let lastTime = performance.now();
+  const _fCam = {};
+  const _fLook = {};
 
   function animate(now) {
     requestAnimationFrame(animate);
@@ -156,11 +168,14 @@ async function boot() {
       lastTime = now;
     }
 
-    // Camera slow orbit on title/idle
-    if (!app.playerRacer) {
-      const angle = now * 0.00015;
-      app.camera.position.set(Math.sin(angle) * 120, 30 + Math.sin(angle * 0.5) * 15, Math.cos(angle) * 120);
-      app.camera.lookAt(0, 0, 0);
+    // Camera free flight along track when idle / spectator
+    if (!app.playerRacer && app.track) {
+      const s = (now * 0.065) % app.track.length;
+      app.track.frame(s, _fCam);
+      app.track.frame((s + 45.0) % app.track.length, _fLook);
+      app.camera.position.copy(_fCam.pos).addScaledVector(_fCam.U, 7.5).addScaledVector(_fCam.R, Math.sin(now * 0.0008) * 8.0);
+      app.camera.up.copy(_fCam.U);
+      app.camera.lookAt(_fLook.pos.x, _fLook.pos.y + 2.0, _fLook.pos.z);
     }
 
     if (app.running && app.renderer) {
