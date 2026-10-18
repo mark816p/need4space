@@ -119,8 +119,9 @@ assert(toDeg(cpGridRunway.bank) === 0 && cpGridRunway.pos.y === 10.0, 'Desert: G
 // 3. UI, MENUS, CHANGELOG & COPYRIGHT
 // -----------------------------------------------------------------------------
 console.log('\n--- 3. UI, Menus, Changelog & Copyright ---');
-assert(CURRENT_VERSION === '1.1.0', 'CURRENT_VERSION is "1.1.0"');
-assert(CHANGELOG[0].title === 'Four Worlds', 'Changelog head entry title is "Four Worlds"');
+const v110Entry = CHANGELOG.find(c => c.version === '1.1.0');
+assert(v110Entry && v110Entry.title === 'Four Worlds', 'Changelog contains "Four Worlds" v1.1.0 entry');
+assert(CURRENT_VERSION >= '1.1.0', 'CURRENT_VERSION is >= "1.1.0"');
 
 const menuSource = readFileSync('./src/menu.js', 'utf8');
 assert(menuSource.includes('showWhatsNew'), 'MenuManager contains showWhatsNew method');

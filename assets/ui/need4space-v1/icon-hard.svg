@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="hardGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 2 L44 20 L38 26 L24 12 L10 26 L4 20 Z" fill="url(#hardGrad)" />
+  <path d="M24 14 L40 30 L34 36 L24 24 L14 36 L8 30 Z" fill="url(#hardGrad)" />
+  <path d="M24 26 L36 38 L31 43 L24 35 L17 43 L12 38 Z" fill="url(#hardGrad)" />
+</svg>

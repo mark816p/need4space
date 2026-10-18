@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="brutalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f43f5e"/>
+      <stop offset="100%" stop-color="#991b1b"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 1 L46 18 L41 24 L24 9 L7 24 L2 18 Z" fill="url(#brutalGrad)"/>
+  <path d="M24 12 L43 28 L38 33 L24 19 L10 33 L5 28 Z" fill="url(#brutalGrad)"/>
+  <path d="M24 22 L39 36 L34 41 L24 29 L14 41 L9 36 Z" fill="url(#brutalGrad)"/>
+  <polygon points="20,38 28,38 26,47 22,47" fill="#f43f5e"/>
+</svg>

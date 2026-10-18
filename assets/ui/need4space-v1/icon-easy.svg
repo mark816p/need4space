@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="easyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4ade80"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 6 L38 20 L32 26 L24 18 L16 26 L10 20 Z" fill="url(#easyGrad)" />
+  <path d="M24 22 L34 32 L30 36 L24 30 L18 36 L14 32 Z" fill="url(#easyGrad)" opacity="0.6"/>
+</svg>

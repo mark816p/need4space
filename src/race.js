@@ -106,13 +106,13 @@ export const AI_LEVELS = {
     boostInterval: 500
   },
   brutal: {
-    speedMul: 1.01,
+    speedMul: 1.02,
     padHitRate: 0.98,
     steerGrip: 14.0,
     boostProb: 0.96,
     wander: 0.2,
     lookAhead: 46.0,
-    boostInterval: 420
+    boostInterval: 390
   }
 };
 

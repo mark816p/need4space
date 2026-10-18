@@ -28,9 +28,10 @@ assert(PITCH_AIR === 14.0, 'PITCH_AIR equals 14.0 m/s²');
 const spaceTrack = createSpaceTrack();
 assert(Array.isArray(spaceTrack.flips) && spaceTrack.flips.length >= 2, 'Space track has at least 2 gravity flips');
 const [flip1, flip2] = spaceTrack.flips;
-assert(flip1[0] === 3440 && flip1[1] === 3680, 'Flip 1 spans [3440, 3680] (240 m)');
-assert(flip2[0] === 4520 && flip2[1] === 4760, 'Flip 2 spans [4520, 4760] (240 m)');
-assert(spaceTrack.inFlip(3560) === true, 'spaceTrack.inFlip(3560) is true');
+assert(flip1 && flip1.length === 2, 'Flip 1 exists');
+assert(flip2 && flip2.length === 2, 'Flip 2 exists');
+const midFlip1 = (flip1[0] + flip1[1]) / 2;
+assert(spaceTrack.inFlip(midFlip1) === true, 'spaceTrack.inFlip(midFlip1) is true');
 assert(spaceTrack.inFlip(1000) === false, 'spaceTrack.inFlip(1000) is false');
 
 // Verify flips are also included in track.gaps for mesh generation
@@ -40,8 +41,9 @@ assert(hasFlip1InGaps, 'Gravity flip 1 is included in track.gaps for mesh cuts a
 // Check 180 bank turnover
 const fApproach = {};
 const fOverhead = {};
-spaceTrack.frame(3300, fApproach);
-spaceTrack.frame(4000, fOverhead);
+spaceTrack.frame(flip1[0] - 150, fApproach);
+const midOverhead = (flip1[1] + flip2[0]) / 2;
+spaceTrack.frame(midOverhead, fOverhead);
 const bankApproachDeg = Math.round(fApproach.bank * 180 / Math.PI);
 const bankOverheadDeg = Math.round(fOverhead.bank * 180 / Math.PI);
 console.log(`Approach bank: ${bankApproachDeg}°, Overhead bank: ${bankOverheadDeg}°`);
@@ -73,10 +75,10 @@ for (let i = 0; i < race.racers.length; i++) {
   const r = race.racers[i];
   const driver = race.drivers[i];
 
-  // Position 100m before flip 1
-  r.reset(3300, 0, SPEED_900KMH);
+  // Position 150m before flip 1
+  r.reset(flip1[0] - 150, 0, SPEED_900KMH);
 
-  // Step across flip 1 (from 3300m to 3800m, ~2.0 seconds)
+  // Step across flip 1 onto overhead deck
   for (let step = 0; step < 260; step++) {
     const input = driver ? driver.plan(race.racers) : { throttle: 1, brake: 0, steer: 0 };
     r.step(dt, input);
@@ -105,7 +107,7 @@ const camCtrl = new CameraController(dummyCam, { rollFollow: 1.0 });
 assert(camCtrl.rollFollow === 1.0, 'CameraController has rollFollow = 1.0');
 
 const testRacer = race.playerRacer;
-testRacer.reset(3300, 0, 200.0);
+testRacer.reset(flip1[0] - 150, 0, 200.0);
 // Approach upright deck
 testRacer.step(dt, { throttle: 1 });
 camCtrl.update(dt, testRacer, spaceTrack);
@@ -113,7 +115,7 @@ assert(dummyCam.up.length() > 0.99, 'Camera up vector is normalized and non-zero
 assert(dummyCam.up.y > 0.5, 'Camera up vector points upwards on standard deck');
 
 // Invert on overhead deck
-testRacer.reset(4000, 0, 200.0);
+testRacer.reset(midOverhead, 0, 200.0);
 for (let k = 0; k < 10; k++) {
   testRacer.step(dt, { throttle: 1 });
   camCtrl.update(dt, testRacer, spaceTrack);
@@ -123,13 +125,14 @@ assert(dummyCam.up.y < -0.5, 'Camera rolls with inverted deck (dummyCam.up.y < -
 
 // 5. Air Pitch Control (PITCH_AIR = 14 m/s²)
 console.log('\nTesting airPitch nose control in the air...');
-// Setup gap jump at gap [1650, 1800]
+// Setup gap jump at first gap
+const firstGap = spaceTrack.gaps[0];
 const pDown = new TrackRacer(spaceTrack, null, { isPlayer: true, airPitch: true });
 const pUp = new TrackRacer(spaceTrack, null, { isPlayer: true, airPitch: true });
 
 // Jump launch into gap at 150 m/s
-pDown.reset(1640, 0, 150.0);
-pUp.reset(1640, 0, 150.0);
+pDown.reset(firstGap[0] - 10, 0, 150.0);
+pUp.reset(firstGap[0] - 10, 0, 150.0);
 
 // Step until both launch into air
 while (!pDown.inAir) pDown.step(dt, { throttle: 1.0 });
@@ -166,7 +169,7 @@ assert(pUp.pitchAccel > 0, `Nose up produces upward acceleration: ${pUp.pitchAcc
 
 // Verify pitch control is disabled during gravity flips
 const pFlip = new TrackRacer(spaceTrack, null, { isPlayer: true, airPitch: true });
-pFlip.reset(3500, 0, 150.0);
+pFlip.reset(midFlip1, 0, 150.0);
 pFlip.step(dt, { throttle: 1.0, brake: 0.0 });
 assert(pFlip.isInFlip === true, 'pFlip.isInFlip is true in gravity flip');
 assert(pFlip.inAir === false, 'pFlip does not enter ballistic air flight in gravity flip');

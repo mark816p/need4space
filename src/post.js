@@ -549,6 +549,11 @@ export class PostPipeline {
     this.enableShafts = true;
     this.waterSpray = 0.0;
 
+    // GTAO material caching and occluders
+    this.aoOccluders = new Set();
+    this.gtaoNormalMaterials = new Map();
+    this._hiddenAOObjects = [];
+
     this.fsTriangle = new FullScreenTriangle();
 
     this.width = (typeof window !== 'undefined' && window.innerWidth) ? window.innerWidth : 1920;
@@ -712,6 +717,48 @@ export class PostPipeline {
     this.bloomBlurV.setSize(quadW, quadH);
   }
 
+  getGTAONormalKey(obj) {
+    const instanced = obj.isInstancedMesh ? 1 : 0;
+    const instanceColor = (obj.isInstancedMesh && obj.instanceColor) ? 2 : 0;
+    const skinned = obj.isSkinnedMesh ? 4 : 0;
+    const morphPos = (obj.morphTargetInfluences && obj.geometry && obj.geometry.morphAttributes && obj.geometry.morphAttributes.position) ? 8 : 0;
+    const morphNorm = (obj.morphTargetInfluences && obj.geometry && obj.geometry.morphAttributes && obj.geometry.morphAttributes.normal) ? 16 : 0;
+    const isOccluder = (this.aoOccluders && this.aoOccluders.has(obj)) ? 32 : 0;
+    return (instanced ? 1 : 0) | (instanceColor ? 2 : 0) | (skinned ? 4 : 0) | (morphPos ? 8 : 0) | (morphNorm ? 16 : 0) | (isOccluder ? 32 : 0);
+  }
+
+  getGTAONormalMaterial(obj) {
+    const key = this.getGTAONormalKey(obj);
+    if (!this.gtaoNormalMaterials.has(key)) {
+      const mat = new THREE.MeshNormalMaterial();
+      mat.depthTest = true;
+      mat.depthWrite = true;
+      this.gtaoNormalMaterials.set(key, mat);
+    }
+    return this.gtaoNormalMaterials.get(key);
+  }
+
+  overrideVisibility() {
+    this._hiddenAOObjects = [];
+    if (!this.scene) return;
+    this.scene.traverse((obj) => {
+      if (obj.isPoints || obj.isLine || obj.isLineSegments) {
+        if (obj.visible) {
+          obj.visible = false;
+          this._hiddenAOObjects.push(obj);
+        }
+      }
+    });
+  }
+
+  restoreVisibility() {
+    if (!this._hiddenAOObjects) return;
+    for (let i = 0; i < this._hiddenAOObjects.length; i++) {
+      this._hiddenAOObjects[i].visible = true;
+    }
+    this._hiddenAOObjects = [];
+  }
+
   render(dt, telemetry = {}) {
     // 1. Update Look Optics telemetry
     this.look.update(dt, telemetry);
@@ -734,6 +781,7 @@ export class PostPipeline {
 
     // 3. GTAO Pass (Half-Res)
     if (this.enableAO) {
+      this.overrideVisibility();
       const uAO = this.matGTAO.uniforms;
       uAO.tDepth.value = depthTex;
       uAO.resolution.value.set(this.aoTarget.width, this.aoTarget.height);
@@ -758,6 +806,7 @@ export class PostPipeline {
       uB.tAO.value = this.aoBlurTarget.texture;
       uB.direction.value.set(0.0, 1.0);
       this.fsTriangle.render(this.renderer, this.matBilateral, this.aoTarget);
+      this.restoreVisibility();
     }
 
     // 4. Deck SSR Pass (Half-Res)

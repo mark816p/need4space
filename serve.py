@@ -49,23 +49,50 @@ class Need4SpaceHandler(SimpleHTTPRequestHandler):
             return MIME_TYPES[ext]
         return super().guess_type(path)
 
+    def _check_origin(self):
+        origin = self.headers.get("Origin")
+        allowed_env = os.environ.get("NEED4SPACE_ALLOWED_ORIGINS", "").strip()
+        if not allowed_env or not origin:
+            return True, origin or "*"
+
+        allowed_list = [o.strip() for o in allowed_env.split(",") if o.strip()]
+        # Always allow localhost / 127.0.0.1 / null (local file / tests)
+        is_local = any(origin.startswith(prefix) for prefix in ("http://localhost", "http://127.0.0.1", "null", "file://"))
+        if is_local or origin in allowed_list:
+            return True, origin
+        return False, origin
+
     def end_headers(self):
         # Force no-cache for instant hot updates and module changes
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+
+        ok, origin_val = self._check_origin()
+        if ok:
+            self.send_header("Access-Control-Allow-Origin", origin_val)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
     def do_OPTIONS(self):
+        ok, _ = self._check_origin()
+        if not ok:
+            self.send_response(403)
+            self.end_headers()
+            return
         self.send_response(204)
         self.end_headers()
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/api/scoreboard":
+            ok, _ = self._check_origin()
+            if not ok:
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden by CORS policy"}')
+                return
             params = urllib.parse.parse_qs(parsed.query)
             circuit = params.get("map", ["space"])[0]
             difficulty = params.get("difficulty", ["normal"])[0]
@@ -107,6 +134,12 @@ class Need4SpaceHandler(SimpleHTTPRequestHandler):
 
         # Endpoint: POST /api/scoreboard
         if parsed.path == "/api/scoreboard":
+            ok, _ = self._check_origin()
+            if not ok:
+                self.send_response(403)
+                self.end_headers()
+                self.wfile.write(b'{"error": "Forbidden by CORS policy"}')
+                return
             length = int(self.headers.get("Content-Length", 0))
             if length > 4096:
                 self.send_response(400)

@@ -3,6 +3,20 @@
 
 export const CHANGELOG = [
   {
+    version: '1.1.1',
+    title: 'Global Scoreboard & Perf Campaign',
+    date: '2026-10-18',
+    notes: [
+      'Global Scoreboard: 16 cross-circuit leaderboards with dual-mode storage (Local JSON and GitHub-backed REST API)',
+      'Automated conflict recovery: HTTP 409 re-fetch and merge keeping fastest personal time and best lap',
+      'Race results integration: pilot name entry, time registration, and persistent local highlighting',
+      'GTAO optimization: normal override material caching by program key and non-mesh occluder isolation',
+      'Web Worker Pool architecture: background procedural heightmap generation off the render thread',
+      'Terrain baking system: asynchronous texture loader with content hashing and procedural fallback',
+      'Brand wordmark and difficulty-specific SVG rank badges (Easy, Normal, Hard, Brutal)'
+    ]
+  },
+  {
     version: '1.1.0',
     title: 'Four Worlds',
     date: '2026-10-18',

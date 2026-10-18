@@ -2,6 +2,7 @@
 // Why: Clean modal navigation for settings, restart, audio/video configuration, and race finish
 
 import { CHANGELOG, CURRENT_VERSION } from './changelog.js';
+import { ScoreboardUI } from './scoreboard.js';
 
 export class MenuManager {
   constructor(app) {
@@ -12,7 +13,8 @@ export class MenuManager {
     this.elResults = hasDoc ? document.getElementById('results') : null;
 
     this.isOpen = false;
-    this.currentView = null; // 'pause' | 'settings' | 'results' | 'circuits' | 'changelog' | 'whats-new'
+    this.currentView = null; // 'pause' | 'settings' | 'results' | 'circuits' | 'changelog' | 'whats-new' | 'scoreboard'
+    this.scoreboard = new ScoreboardUI(app);
 
     this._bindEvents();
   }
@@ -148,6 +150,42 @@ export class MenuManager {
     if (this.elMenu) this.elMenu.classList.add('hidden');
     if (this.elSettings) this.elSettings.classList.add('hidden');
     if (this.elResults) this.elResults.classList.add('hidden');
+    if (this.scoreboard && this.scoreboard.container) this.scoreboard.container.classList.add('hidden');
+  }
+
+  restartRace() {
+    this.resume();
+    if (this.app.race) {
+      this.app.race._buildGrid();
+      this.app.race.state = 'countdown';
+      this.app.race.countdownTime = 4.0;
+      this.app.race.elapsedTime = 0.0;
+      this.app.playerRacer = this.app.race.playerRacer;
+    }
+    if (this.app.hud) {
+      this.app.hud.currentLapTime = 0.0;
+      this.app.hud.totalRaceTime = 0.0;
+      this.app.hud.score = 0;
+      this.app.hud.currentLap = 1;
+    }
+    if (this.app.music) {
+      this.app.music.stop();
+    }
+    if (typeof window !== 'undefined' && this.app.playerRacer) {
+      window.dispatchEvent(new CustomEvent('need4space:race-reset', { detail: { s: this.app.playerRacer.s } }));
+    }
+  }
+
+  showPauseMenu() {
+    this._renderPauseMenu();
+  }
+
+  showScoreboard() {
+    this._hideAllDialogs();
+    this.currentView = 'scoreboard';
+    const curMap = this.app.track ? this.app.track.name : 'space';
+    const curDiff = this.app.settings ? this.app.settings.get('difficulty') : 'normal';
+    this.scoreboard.open(curMap, curDiff);
   }
 
   _renderPauseMenu() {
@@ -163,6 +201,7 @@ export class MenuManager {
           <button class="btn btn-primary" id="btn-resume">RESUME RACE</button>
           <button class="btn" id="btn-restart">RESTART CIRCUIT</button>
           <button class="btn" id="btn-circuits">SELECT CIRCUIT</button>
+          <button class="btn" id="btn-scoreboard">GLOBAL SCOREBOARD</button>
           <button class="btn" id="btn-options">OPTIONS</button>
           <button class="btn" id="btn-whats-new">WHAT'S NEW IN v${CURRENT_VERSION}</button>
           <button class="btn" id="btn-changelog">CHANGELOG</button>
@@ -174,6 +213,7 @@ export class MenuManager {
     document.getElementById('btn-resume')?.addEventListener('click', () => this.resume());
     document.getElementById('btn-restart')?.addEventListener('click', () => this.restartRace());
     document.getElementById('btn-circuits')?.addEventListener('click', () => this.showCircuits());
+    document.getElementById('btn-scoreboard')?.addEventListener('click', () => this.showScoreboard());
     document.getElementById('btn-options')?.addEventListener('click', () => this.showOptions());
     document.getElementById('btn-whats-new')?.addEventListener('click', () => this.showWhatsNew());
     document.getElementById('btn-changelog')?.addEventListener('click', () => this.showChangelog());
@@ -477,13 +517,79 @@ export class MenuManager {
             ${rowsHtml}
           </tbody>
         </table>
-        <div class="dialog-actions">
+
+        <div class="sb-submit-card" style="margin-top: 18px; padding: 14px; background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-cyan); border-radius: 6px;">
+          <div style="font-family: var(--font-display, Orbitron, sans-serif); font-size: 13px; font-weight: 700; margin-bottom: 8px; color: var(--accent-cyan);">REGISTER TIME ON GLOBAL SCOREBOARD</div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="text" id="sb-input-name" maxlength="24" value="${this.scoreboard ? this.scoreboard.getRememberedPilotName() : 'Pilot'}" placeholder="Pilot Name" style="flex: 1; padding: 8px 12px; background: rgba(0,0,0,0.6); border: 1px solid #475569; color: #fff; border-radius: 4px; font-family: var(--font-tech, Rajdhani, sans-serif); font-size: 15px;">
+            <button class="btn btn-primary" id="btn-sb-submit" style="padding: 8px 16px;">SUBMIT TIME</button>
+          </div>
+          <div id="sb-submit-status" style="font-size: 13px; margin-top: 8px; display: none;"></div>
+        </div>
+
+        <div class="dialog-actions" style="margin-top: 16px; display: flex; gap: 12px;">
           <button class="btn btn-primary" id="btn-res-restart">RESTART (R)</button>
+          <button class="btn btn-secondary" id="btn-res-scoreboard">GLOBAL SCOREBOARD</button>
         </div>
       </div>
     `;
 
     this._renderHints(this.elResults);
     document.getElementById('btn-res-restart')?.addEventListener('click', () => this.restartRace());
+    document.getElementById('btn-res-scoreboard')?.addEventListener('click', () => this.showScoreboard());
+
+    const btnSub = document.getElementById('btn-sb-submit');
+    const inName = document.getElementById('sb-input-name');
+    const statusEl = document.getElementById('sb-submit-status');
+
+    btnSub?.addEventListener('click', async () => {
+      const pilotName = (inName ? inName.value : '').trim() || 'Pilot';
+      if (this.scoreboard) this.scoreboard.setRememberedPilotName(pilotName);
+
+      if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.style.color = '#38bdf8';
+        statusEl.textContent = 'Submitting time to leaderboard...';
+      }
+      btnSub.disabled = true;
+
+      const playerResult = results.find(r => r.isPlayer);
+      const curMap = this.app.track ? this.app.track.name : 'space';
+      const curDiff = this.app.settings ? this.app.settings.get('difficulty') : 'normal';
+
+      const laps = (this.app.playerRacer && this.app.playerRacer.lapTimes && this.app.playerRacer.lapTimes.length === 3)
+        ? this.app.playerRacer.lapTimes
+        : [playerResult ? playerResult.time / 3.0 : 60, playerResult ? playerResult.time / 3.0 : 60, playerResult ? playerResult.time / 3.0 : 60];
+
+      const bestLap = Math.min(...laps);
+
+      const payload = {
+        map: curMap,
+        difficulty: curDiff,
+        name: pilotName,
+        total: playerResult ? playerResult.time : 180.0,
+        best: bestLap,
+        points: playerResult ? playerResult.points : 100,
+        laps: laps,
+        ship: this.app.ship ? this.app.ship.kind : 'feather'
+      };
+
+      const res = await (this.scoreboard ? this.scoreboard.client.submitTime(payload) : { success: false });
+      if (res && res.success) {
+        if (statusEl) {
+          statusEl.style.color = '#22c55e';
+          statusEl.innerHTML = `✓ TIME SAVED! <button class="btn btn-sm" id="btn-view-board" style="margin-left: 8px; padding: 4px 8px; font-size: 11px;">VIEW BOARD</button>`;
+          document.getElementById('btn-view-board')?.addEventListener('click', () => {
+            this.showScoreboard();
+          });
+        }
+      } else {
+        btnSub.disabled = false;
+        if (statusEl) {
+          statusEl.style.color = '#f43f5e';
+          statusEl.textContent = (res && res.message) || 'Your time was not saved. Please try again.';
+        }
+      }
+    });
   }
 }
