@@ -782,6 +782,13 @@ export class PostPipeline {
     // If master toggle is disabled, render scene directly to screen
     if (!this.enabled) {
       this.renderer.setRenderTarget(null);
+      this.renderer.clear();
+      if (telemetry.world && telemetry.world.preRender) {
+        telemetry.world.preRender(this.renderer);
+      } else if (telemetry.world && telemetry.world.sky && telemetry.world.skyCam) {
+        this.renderer.render(telemetry.world.sky, telemetry.world.skyCam);
+        this.renderer.clearDepth();
+      }
       this.renderer.render(this.scene, this.camera);
       return;
     }
@@ -789,6 +796,12 @@ export class PostPipeline {
     // 2. Render 3D Scene into full-res target
     this.renderer.setRenderTarget(this.sceneTarget);
     this.renderer.clear();
+    if (telemetry.world && telemetry.world.preRender) {
+      telemetry.world.preRender(this.renderer);
+    } else if (telemetry.world && telemetry.world.sky && telemetry.world.skyCam) {
+      this.renderer.render(telemetry.world.sky, telemetry.world.skyCam);
+      this.renderer.clearDepth();
+    }
     this.renderer.render(this.scene, this.camera);
 
     const depthTex = this.sceneTarget.depthTexture;

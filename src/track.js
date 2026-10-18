@@ -293,6 +293,20 @@ export class Track {
     }
   }
 
+  get frames() {
+    if (this._framesCache) return this._framesCache;
+    this._framesCache = [];
+    for (let i = 0; i < this.n; i++) {
+      this._framesCache.push({
+        pos: new THREE.Vector3(this.px[i], this.py[i], this.pz[i]),
+        T: new THREE.Vector3(this.tx[i], this.ty[i], this.tz[i]),
+        U: new THREE.Vector3(this.ux[i], this.uy[i], this.uz[i]),
+        R: new THREE.Vector3(this.rx[i], this.ry[i], this.rz[i])
+      });
+    }
+    return this._framesCache;
+  }
+
   wrap(s) {
     s = s % this.length;
     return s < 0 ? s + this.length : s;

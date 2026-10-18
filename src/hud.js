@@ -77,13 +77,27 @@ export class HUDController {
     let minX = Infinity, maxX = -Infinity;
     let minZ = Infinity, maxZ = -Infinity;
 
+    const n = this.track.n || (this.track.px ? this.track.px.length : 0);
+    const hasPx = this.track.px && n > 0;
     const frames = this.track.frames || [];
-    for (let i = 0; i < frames.length; i += 8) {
-      const p = frames[i].pos;
-      if (p.x < minX) minX = p.x;
-      if (p.x > maxX) maxX = p.x;
-      if (p.z < minZ) minZ = p.z;
-      if (p.z > maxZ) maxZ = p.z;
+
+    if (hasPx) {
+      for (let i = 0; i < n; i += 8) {
+        const x = this.track.px[i];
+        const z = this.track.pz[i];
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+      }
+    } else if (frames.length > 0) {
+      for (let i = 0; i < frames.length; i += 8) {
+        const p = frames[i].pos;
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.z < minZ) minZ = p.z;
+        if (p.z > maxZ) maxZ = p.z;
+      }
     }
 
     const pad = 24.0;
@@ -98,7 +112,18 @@ export class HUDController {
 
     // Pre-bake static track circuit path for 60 FPS performance
     this.trackPath = new Path2D();
-    if (frames.length > 0) {
+    if (hasPx) {
+      const startX = this.track.px[0] * this.mapScale + this.mapOffsetX;
+      const startZ = this.track.pz[0] * this.mapScale + this.mapOffsetZ;
+      this.trackPath.moveTo(startX, startZ);
+
+      for (let i = 8; i < n; i += 8) {
+        const x = this.track.px[i] * this.mapScale + this.mapOffsetX;
+        const z = this.track.pz[i] * this.mapScale + this.mapOffsetZ;
+        this.trackPath.lineTo(x, z);
+      }
+      this.trackPath.closePath();
+    } else if (frames.length > 0) {
       const startX = frames[0].pos.x * this.mapScale + this.mapOffsetX;
       const startZ = frames[0].pos.z * this.mapScale + this.mapOffsetZ;
       this.trackPath.moveTo(startX, startZ);
@@ -251,13 +276,21 @@ export class HUDController {
     ctx.stroke(this.trackPath);
 
     // Start / Finish Line
-    if (this.track.frames && this.track.frames.length > 0) {
+    let sx = 0, sz = 0, hasStart = false;
+    if (this.track.px && this.track.px.length > 0) {
+      sx = this.track.px[0] * this.mapScale + this.mapOffsetX;
+      sz = this.track.pz[0] * this.mapScale + this.mapOffsetZ;
+      hasStart = true;
+    } else if (this.track.frames && this.track.frames.length > 0) {
       const p0 = this.track.frames[0].pos;
-      const sx = p0.x * this.mapScale + this.mapOffsetX;
-      const sz = p0.z * this.mapScale + this.mapOffsetZ;
+      sx = p0.x * this.mapScale + this.mapOffsetX;
+      sz = p0.z * this.mapScale + this.mapOffsetZ;
+      hasStart = true;
+    }
+    if (hasStart) {
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(sx, sz, 3.5, 0, Math.PI * 2);
+      ctx.arc(sx, sz, 4.0, 0, Math.PI * 2);
       ctx.fill();
     }
 

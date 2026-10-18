@@ -82,6 +82,7 @@ export class SpaceWorld {
     this.sun.shadow.camera.bottom = -25;
     this.sun.shadow.bias = -0.0002;
     this.scene.add(this.sun);
+    this.scene.add(this.sun.target);
 
     // Sun cascade 2: Mid (gantries, track bends, half 60m)
     this.sunMid = new THREE.DirectionalLight(0xfffaed, 0.0); // Shadow only cascade
@@ -94,8 +95,14 @@ export class SpaceWorld {
     this.scene.add(this.sunFar);
 
     // Faint warm planet-shine & starlight ambient
-    this.ambient = new THREE.AmbientLight(0x182438, 0.6);
+    this.ambient = new THREE.AmbientLight(0x24364e, 0.85);
     this.scene.add(this.ambient);
+
+    // Planet-shine directional fill light from the ringed gas giant
+    this.planetLight = new THREE.DirectionalLight(0x6699dd, 0.65);
+    this.planetLight.position.set(-0.45, -0.25, 0.85).normalize().multiplyScalar(400);
+    this.scene.add(this.planetLight);
+    this.scene.add(this.planetLight.target);
 
     // Fixed 3 point lights moved to nearest gantries (avoids mid-race shader recompiles)
     this.lamps = [
@@ -159,6 +166,58 @@ export class SpaceWorld {
     });
     this.starField = new THREE.Points(starGeo, starMat);
     this.sky.add(this.starField);
+
+    // 1b. Deep Cosmic Nebula & Milky Way Galactic Dust Clouds
+    if (typeof document !== 'undefined') {
+      const nebCanvas = document.createElement('canvas');
+      nebCanvas.width = 128;
+      nebCanvas.height = 128;
+      const nctx = nebCanvas.getContext('2d');
+      const ngrad = nctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      ngrad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+      ngrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.45)');
+      ngrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.12)');
+      ngrad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+      nctx.fillStyle = ngrad;
+      nctx.fillRect(0, 0, 128, 128);
+      const nebTex = new THREE.CanvasTexture(nebCanvas);
+
+      const nebCount = 42;
+      const nebColors = [
+        new THREE.Color(0x1a3366), // Deep Indigo / Cyan
+        new THREE.Color(0x3d1a55), // Cosmic Violet / Purple
+        new THREE.Color(0x0e4455), // Dark Teal
+        new THREE.Color(0x552233)  // Warm Terracotta / Magenta
+      ];
+      this.nebulaGroup = new THREE.Group();
+      this.nebulaGroup.name = 'space_nebula_clouds';
+
+      for (let i = 0; i < nebCount; i++) {
+        // Distribute along an inclined galactic arc
+        const u = (i / nebCount) * Math.PI * 2.0;
+        const lat = (Math.sin(u * 2.0) * 0.25) + (Math.random() - 0.5) * 0.35;
+        const dist = 130000 + (Math.random() - 0.5) * 20000;
+        const nx = Math.cos(u) * Math.cos(lat) * dist;
+        const ny = Math.sin(lat) * dist;
+        const nz = Math.sin(u) * Math.cos(lat) * dist;
+
+        const col = nebColors[i % nebColors.length];
+        const sMat = new THREE.SpriteMaterial({
+          map: nebTex,
+          color: col,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          opacity: 0.18 + Math.random() * 0.14,
+          depthWrite: false
+        });
+        const spr = new THREE.Sprite(sMat);
+        const sSize = 45000 + Math.random() * 35000;
+        spr.scale.set(sSize, sSize, 1);
+        spr.position.set(nx, ny, nz);
+        this.nebulaGroup.add(spr);
+      }
+      this.sky.add(this.nebulaGroup);
+    }
 
     // 2. The Sun: Boiling granulation sphere + corona
     const sunDist = 70000;
@@ -569,6 +628,12 @@ export class SpaceWorld {
     this.sun.position.copy(targetPos).addScaledVector(this.sunDir, 250);
     this.sun.target.position.copy(targetPos);
     this.sun.target.updateMatrixWorld();
+
+    if (this.planetLight) {
+      this.planetLight.position.copy(targetPos).add(new THREE.Vector3(-180, -90, 220));
+      this.planetLight.target.position.copy(targetPos);
+      this.planetLight.target.updateMatrixWorld();
+    }
   }
 
   update(dt, camera, shipPos, s = 0, renderer = null) {

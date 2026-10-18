@@ -586,7 +586,6 @@ async function boot() {
         const shipPos = app.playerRacer ? app.playerRacer.pos : (app.ship ? app.ship.root.position : null);
         const shipS = app.playerRacer ? app.playerRacer.s : 0;
         app.world.update(dt, app.camera, shipPos, shipS, app.renderer);
-        app.world.preRender(app.renderer);
       }
 
       const telemetry = {
@@ -613,6 +612,11 @@ async function boot() {
       if (app.post) {
         app.post.render(dt, telemetry);
       } else if (app.scene && app.camera) {
+        app.renderer.setRenderTarget(null);
+        app.renderer.clear();
+        if (app.world && app.world.preRender) {
+          app.world.preRender(app.renderer);
+        }
         app.renderer.render(app.scene, app.camera);
       }
     }

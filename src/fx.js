@@ -86,24 +86,28 @@ export class FXSystem {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. High-Speed 3D Warp Lines
+  // 2. High-Speed 3D Warp Lines (Peripheral Dynamic Streaming)
   // ---------------------------------------------------------------------------
   _initSpeedLines() {
-    const count = 300;
+    this.numSpeedLines = 54;
+    this.streakData = [];
     const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(count * 6); // 2 vertices per line (start & end)
-    const alphas = new Float32Array(count * 2);
+    const positions = new Float32Array(this.numSpeedLines * 6); // 2 vertices per line (start & end)
 
-    for (let i = 0; i < count; i++) {
-      // Cylinder distribution around camera
+    for (let i = 0; i < this.numSpeedLines; i++) {
+      // Peripheral ellipse distribution: leaves the central 70% view cone completely unobstructed
       const theta = Math.random() * Math.PI * 2;
-      const radius = 2.5 + Math.random() * 8.0;
-      const z = -(5.0 + Math.random() * 30.0);
-      const len = 3.0 + Math.random() * 5.0;
+      const radX = 10.0 + Math.random() * 9.0;
+      const radY = 6.0 + Math.random() * 5.5;
+      const z = -(8.0 + Math.random() * 32.0);
+      const len = 3.5 + Math.random() * 6.5;
+      const speedRate = 1.0 + Math.random() * 0.8;
+
+      this.streakData.push({ theta, radX, radY, z, len, speedRate });
 
       const idx = i * 6;
-      const x = Math.cos(theta) * radius;
-      const y = Math.sin(theta) * radius;
+      const x = Math.cos(theta) * radX;
+      const y = Math.sin(theta) * radY;
 
       // Start vertex
       positions[idx] = x;
@@ -114,15 +118,12 @@ export class FXSystem {
       positions[idx + 3] = x;
       positions[idx + 4] = y;
       positions[idx + 5] = z - len;
-
-      alphas[i * 2] = 0.0;
-      alphas[i * 2 + 1] = 0.8;
     }
 
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     this.matSpeedLines = new THREE.LineBasicMaterial({
-      color: 0x88e5ff,
+      color: 0x44ddff,
       transparent: true,
       opacity: 0.0,
       blending: THREE.AdditiveBlending,
@@ -282,19 +283,54 @@ export class FXSystem {
       }
     }
 
-    // 2. Speed Lines (active > 220 m/s)
+    // 2. Peripheral Dynamic Speed Lines (active > 200 m/s / 720 km/h)
     if (this.speedLinesMesh && playerRacer) {
       const speed = playerRacer.vs || 0;
-      const speedThreshold = 220.0; // 792 km/h
+      const speedThreshold = 200.0;
       const targetOpacity = (speed > speedThreshold)
-        ? clamp((speed - speedThreshold) / 50.0, 0.0, 0.85)
+        ? clamp((speed - speedThreshold) / 60.0, 0.0, 0.30)
         : 0.0;
 
       this.matSpeedLines.opacity = damp(this.matSpeedLines.opacity, targetOpacity, 8.0, dt);
 
-      // Lock speed lines mesh to camera space
+      // Lock speed lines mesh coordinate frame to camera
       this.speedLinesMesh.position.copy(this.camera.position);
       this.speedLinesMesh.quaternion.copy(this.camera.quaternion);
+
+      // Stream peripheral warp streaks dynamically backwards past camera
+      if (this.matSpeedLines.opacity > 0.005 && this.streakData) {
+        const posAttr = this.speedLinesMesh.geometry.attributes.position;
+        const arr = posAttr.array;
+        const streamDelta = speed * dt * 0.85;
+
+        for (let i = 0; i < this.numSpeedLines; i++) {
+          const st = this.streakData[i];
+          st.z += streamDelta * st.speedRate;
+
+          // Recycle streak if it has rushed past the camera
+          if (st.z - st.len > 0.5) {
+            st.z = -30.0 - Math.random() * 20.0;
+            st.theta = Math.random() * Math.PI * 2;
+            st.radX = 10.0 + Math.random() * 9.0;
+            st.radY = 6.0 + Math.random() * 5.5;
+            st.len = 3.5 + Math.random() * 6.5;
+            st.speedRate = 1.0 + Math.random() * 0.8;
+          }
+
+          const idx = i * 6;
+          const x = Math.cos(st.theta) * st.radX;
+          const y = Math.sin(st.theta) * st.radY;
+
+          arr[idx] = x;
+          arr[idx + 1] = y;
+          arr[idx + 2] = st.z;
+
+          arr[idx + 3] = x;
+          arr[idx + 4] = y;
+          arr[idx + 5] = st.z - st.len;
+        }
+        posAttr.needsUpdate = true;
+      }
     }
 
     // 3. Update Sparks Physics

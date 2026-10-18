@@ -298,6 +298,11 @@ export class Ship {
     this.headlight.target = this.headlightTarget;
     this.root.add(this.headlight);
 
+    // Forward deck fill illumination for crisp track surface legibility
+    this.forwardDeckLight = new THREE.PointLight(0xaad4ff, 1.2, 45, 1.5);
+    this.forwardDeckLight.position.set(0, -0.6, -7.5);
+    this.root.add(this.forwardDeckLight);
+
     // Engine Ribbon Trails (one per nozzle)
     this.trails = this.nozzles.map(() => new EngineTrail(35, 0.7, 0x00d2ff));
 
@@ -608,6 +613,9 @@ export class Ship {
     const targetHeadlight = 1.8 + chamberDarkness * 4.8;
     this.headlight.intensity = damp(this.headlight.intensity, targetHeadlight, 4.0, dt);
     this.headlight.distance = 300 + chamberDarkness * 120;
+    if (this.forwardDeckLight) {
+      this.forwardDeckLight.intensity = this.power * (1.2 + chamberDarkness * 2.5);
+    }
 
     // Coordinated visual turn bank into the corner
     const turnBank = -turn * 0.22;
