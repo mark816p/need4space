@@ -33,34 +33,62 @@ export function createForestTrack() {
       name = 'Cascade River Crossing'; // Waterfall arches overhead
       y -= 20.0;
       bank = 15;
-    } else if (i >= 12 && i <= 14) {
-      name = 'The Root Tunnel';
-      y -= 45.0;
+    } else if (i === 11) {
+      name = 'Hollow Hill Cave Approach';
+      y -= 35.0;
+      bank = 0;
+    } else if (i === 12) {
+      name = 'Cave Entry (Under Own Way Out)';
+      y -= 65.0;
+      bank = 0;
+    } else if (i === 13) {
+      name = 'Waterfall Cavern & Chasm Jump';
+      y -= 60.0;
+      bank = 0;
+    } else if (i === 14) {
+      name = 'Stalactite Hall & Slalom';
+      y -= 10.0;
+      bank = 0;
+    } else if (i === 15) {
+      name = 'Fungi Forest & Sinkholes';
+      y += 45.0;
       bank = 0;
     } else if (i === 16) {
-      name = 'Floating Ridge Launch';
-      y += 60.0;
+      name = 'Hollow Hill Way Out Overpass';
+      y += 115.0;
+      bank = 0;
+    } else if (i === 17) {
+      y += 85.0;
       bank = 0;
     } else if (i >= 18 && i <= 20) {
       name = 'Verdant Loop Approach';
-      y += 40.0;
+      y += 45.0;
       bank = 0;
     } else if (i === 21) {
       name = 'Verdant Loop Zenith (Inverted)';
       y += 140.0;
       bank = 0;
-    } else if (i >= 23 && i <= 26) {
-      // 360-deg continuous roll through the mountain cut
+    } else if (i >= 23 && i <= 25) {
+      // Continuous roll through the mountain cut
       name = 'Jungle Ridge Corkscrew';
-      const rollFrac = (i - 23) / 3.0;
+      const rollFrac = (i - 23) / 2.0;
       bank = rollFrac * 360.0;
-    } else if (i >= 28 && i <= 30) {
-      name = 'The Colossal Skull (Jaws & Ribs)';
-      y += 20.0;
+    } else if (i === 26) {
+      name = 'Pre-Skull Gravity Flip 1 Approach';
+      bank = 0;
+    } else if (i === 27) {
+      name = 'Gravity Flip 1 (180 Inversion onto Overhead Deck)';
+      y += 24.0;
+      bank = 180.0;
+    } else if (i >= 28 && i <= 29) {
+      name = 'Inverted Run Past Skull (Jaws, Palate, Ribs)';
+      y += 24.0;
+      bank = 180.0;
+    } else if (i === 30) {
+      name = 'Gravity Flip 2 (180 Roll Back Upright)';
       bank = 0;
     } else if (i === 31) {
-      name = 'Skull Cranium Exit Cut';
-      y += 10.0;
+      name = 'Skull Cranium Exit Straight';
       bank = 0;
     } else if (i >= 32 && i <= 34) {
       name = 'Ancient Banyan Sweeper';
@@ -79,26 +107,34 @@ export function createForestTrack() {
     theme: 'forest',
     towers: false,
     meteor: false,
+    flips: [
+      [10000, 10240], // Flip 1: Rolls 180 into inverted flight past colossal skull
+      [11150, 11390], // Flip 2: Rolls 180 back upright onto home sweeper
+    ],
     gaps: [
       [1950, 2120],   // Island Crest Jump (170 m leap)
-      [6100, 6260],   // Floating Ridge Launch (160 m leap)
-      [11800, 11950], // Cranium Exit Cut Jump (150 m leap)
+      [4550, 4700],   // Waterfall Cavern Chasm Jump (150 m leap over lake)
+      [5700, 5860],   // Hollow Hill Exit Launch (160 m leap)
     ],
     loops: [
-      [7800, 8400],   // Verdant Loop (~600 m circumference)
+      [7600, 8200],   // Verdant Loop (~600 m circumference)
     ],
     tunnels: [
-      [4500, 5600],   // The Root Tunnel (1100 m)
-      [10400, 11600], // Skeleton Skull Interior (1200 m)
+      [4200, 6200],   // Hollow Hill 2 km Cave (tube through hollow hill)
+      [10400, 11100], // Skeleton Skull Interior (inverted passage)
     ],
     cascade: {
       s: 3400,        // Cascade River waterfall arches over the track at s=3400m
       width: 60.0,
       dropHeight: 180.0
     },
+    cave: {
+      sStart: 4200,   // Cave 2 km through hollow hill
+      sEnd: 6200,
+    },
     skeleton: {
       sEntry: 10400,  // Skull jaws entry
-      sExit: 11600,   // Cranium exit
+      sExit: 11100,   // Cranium exit
       fangHeight: 38.0,
       ribSpan: 58.0
     },
@@ -106,23 +142,26 @@ export function createForestTrack() {
       { s: 500, x: 0, kind: 'boost' },
       { s: 1800, x: 0, kind: 'boost' },  // Pre-jump 1
       { s: 3100, x: -6, kind: 'boost' }, // Cascade approach
-      { s: 4300, x: 0, kind: 'boost' },  // Tunnel entry
-      { s: 5900, x: 0, kind: 'boost' },  // Pre-jump 2
-      { s: 7600, x: 0, kind: 'boost' },  // Pre-loop boost
-      { s: 8900, x: 6, kind: 'boost' },  // Post-loop straight
-      { s: 10200, x: 0, kind: 'boost' }, // Pre-skull entry
-      { s: 11650, x: 0, kind: 'boost' }, // Cranium exit leap
+      { s: 4100, x: 0, kind: 'boost' },  // Cave entry boost
+      { s: 4500, x: 0, kind: 'boost' },  // Pre-chasm jump in waterfall cavern
+      { s: 5600, x: 0, kind: 'boost' },  // Cave exit boost
+      { s: 7400, x: 0, kind: 'boost' },  // Pre-loop boost
+      { s: 8700, x: 6, kind: 'boost' },  // Post-loop straight
+      { s: 9900, x: 0, kind: 'boost' },  // Pre-flip 1 boost pad
+      { s: 11050, x: 0, kind: 'boost' }, // Pre-flip 2 boost pad
       { s: 12800, x: 0, kind: 'boost' }, // Final straight
     ],
     gates: [
       { s: 400, color: 0x00ff88 },
       { s: 1850, color: 0x00d2ff },
       { s: 3300, color: 0x38bdf8 },
-      { s: 5800, color: 0xffaa00 },
-      { s: 7500, color: 0x00ff88 },
-      { s: 8700, color: 0xa855f7 },
-      { s: 10100, color: 0xff3366 },
-      { s: 11700, color: 0x00d2ff },
+      { s: 4150, color: 0x00ff88 }, // Cave entry gate
+      { s: 6250, color: 0xffaa00 }, // Cave exit gate
+      { s: 7300, color: 0x00ff88 },
+      { s: 8600, color: 0xa855f7 },
+      { s: 9950, color: 0xec4899 }, // Magenta-violet gate before gravity flip 1
+      { s: 11100, color: 0xec4899 }, // Magenta-violet gate before gravity flip 2
+      { s: 12200, color: 0x00d2ff },
       { s: 13200, color: 0x00ff88 },
     ]
   };

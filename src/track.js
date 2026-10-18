@@ -435,31 +435,30 @@ export class Track {
   }
 }
 
-// Factory function for the Space Circuit (~13.6 km expanded in P4 to thread the derelict Colossus)
+// Factory function for the Space Circuit (~26.6 km expanded in P7 to thread the 12 km derelict Colossus)
 export function createSpaceTrack() {
-  const numPoints = 40;
+  const numPoints = 64;
   const controlPoints = [];
-  const R_BASE = 2022.0;
+  const R_BASE = 3915.0; // Perimeter yields ~26.66 km
   const R_LOOP = 80.0;
-  const excursionScale = 680.0;
+  const excursionScale = 980.0;
 
   for (let i = 0; i < numPoints; i++) {
     const theta = (i / numPoints) * Math.PI * 2.0;
-    // Radius modulation for realistic circuit layout with long straights and tech corners
-    let r = R_BASE + 320.0 * Math.cos(theta * 2.0) - 180.0 * Math.sin(theta * 3.0);
+    // Harmonic radius modulation for natural cosmic sweeping curves
+    let r = R_BASE + 630.0 * Math.cos(theta * 2.0) - 350.0 * Math.sin(theta * 3.0);
     let x = Math.sin(theta) * r;
     let z = Math.cos(theta) * r;
-    let y = Math.sin(theta * 2.0) * 45.0 + Math.cos(theta * 4.0) * 25.0;
+    let y = Math.sin(theta * 2.0) * 85.0 + Math.cos(theta * 4.0) * 50.0;
     let bank = 0;
     let name = `Sector ${i + 1}`;
 
-    // Smooth sinusoidal envelope excursion threading through the Titan-class derelict Colossus
-    if (i >= 26 && i <= 36) {
-      const frac = (i - 26) / 10.0;
-      const colossusEnvelope = Math.sin(frac * Math.PI) ** 1.8;
+    // Sinusoidal envelope excursion threading through the 12 km Titan-class derelict Colossus
+    if (i >= 28 && i <= 56) {
+      const frac = (i - 28) / 28.0;
+      const colossusEnvelope = Math.sin(frac * Math.PI) ** 1.6;
       x -= excursionScale * colossusEnvelope;
-      y += 18.0 * Math.sin(frac * Math.PI);
-      name = `Derelict Sector ${i - 25}`;
+      y += 28.0 * Math.sin(frac * Math.PI);
     }
 
     // Specific track features mapped to continuous sectors
@@ -469,62 +468,80 @@ export function createSpaceTrack() {
     } else if (i >= 2 && i <= 4) {
       name = 'Orbital Sweeper';
       bank = -28;
-    } else if (i === 5) {
+    } else if (i === 8) {
       name = 'Jump Gap 1';
       bank = 0;
-    } else if (i === 6) {
+    } else if (i === 11) {
       name = 'Loop Approach';
       y += R_LOOP * 0.8;
       bank = 0;
-    } else if (i === 7) {
+    } else if (i === 12) {
       name = 'Vertical Loop Top (Inverted)';
       y += R_LOOP * 2.0;
       bank = 0;
-    } else if (i === 8) {
+    } else if (i === 13) {
       name = 'Loop Exit';
       y += R_LOOP * 0.8;
       bank = 0;
-    } else if (i === 10) {
-      name = 'Gravity Flip 1 Approach';
+    } else if (i === 16) {
+      name = 'Pre-Derelict Flip 1 Approach';
       bank = 0;
-    } else if (i === 11) {
-      name = 'Gravity Flip 1 (Climb 24m & Invert)';
+    } else if (i === 17) {
+      name = 'Pre-Derelict Flip 1 (Climb 24m & Invert)';
       y += 24.0;
       bank = 180.0;
-    } else if (i >= 12 && i <= 13) {
-      name = 'Overhead Inverted Straight';
+    } else if (i >= 18 && i <= 21) {
+      name = 'Pre-Derelict Overhead Inverted Straight';
       y += 24.0;
       bank = 180.0;
-    } else if (i === 14) {
-      name = 'Gravity Flip 2 (Descent 24m & Upright)';
-      bank = 0;
-    } else if (i >= 16 && i <= 18) {
-      name = 'Asteroid Slalom';
-      bank = (i % 2 === 0 ? 30 : -30);
-    } else if (i >= 20 && i <= 22) {
-      name = 'Meteorite Glass Tunnel (The Cave)';
-      bank = 0;
-    } else if (i === 23) {
-      name = 'Jump Gap 2';
+    } else if (i === 22) {
+      name = 'Pre-Derelict Flip 2 (Descent 24m & Upright)';
       bank = 0;
     } else if (i >= 24 && i <= 26) {
-      // Barrel Roll 2: 360 deg continuous bank spread over 2 sectors
-      name = 'Barrel Roll 2';
-      const rollFrac = (i - 24) / 2.0;
-      bank = rollFrac * 360.0;
-    } else if (i >= 27 && i <= 36) {
-      // Inside derelict Colossus
-      if (i === 27) name = 'Derelict Colossus Approach';
-      else if (i === 28) { name = 'Colossal Engine Bell'; bank = 8; }
-      else if (i === 29) name = 'Antimatter Turbopump Throat';
-      else if (i === 30) name = 'Reactor Hall Core 1';
-      else if (i === 31) name = 'Reactor Hall Core 2 (The Break Approach)';
-      else if (i === 32) { name = 'The Break (Hull Fracture Leap)'; bank = -10; }
-      else if (i === 33) { name = 'Forward Cargo Hangar'; bank = -6; }
-      else if (i === 34) name = 'Hangar Backbone Ribs';
-      else if (i === 35) { name = 'Hull Breach Exit & Sensor Boom'; bank = 18; }
-      else if (i === 36) name = 'Wreck Graveyard Sweeper';
-    } else if (i >= 37) {
+      name = 'Meteorite Glass Tunnel (The Cave)';
+      bank = 0;
+    } else if (i === 27) {
+      name = 'Jump Gap 2';
+      bank = 0;
+    } else if (i >= 28 && i <= 30) {
+      name = 'Colossus Approach';
+      bank = 0;
+    } else if (i >= 31 && i <= 32) {
+      name = 'Colossus Engine Bell & Throat';
+      bank = 8;
+    } else if (i >= 33 && i <= 35) {
+      name = 'Colossus Reactor Hall & Cores';
+      bank = 0;
+    } else if (i === 36) {
+      name = 'The Break (150m Vacuum Leap)';
+      bank = -10;
+    } else if (i === 38) {
+      name = 'Colossus Upside-Down Hold Flip 1 Approach';
+      bank = 0;
+    } else if (i === 39) {
+      name = 'Colossus Upside-Down Hold Flip 1 (Invert)';
+      y += 24.0;
+      bank = 180.0;
+    } else if (i >= 40 && i <= 43) {
+      name = 'Colossus Upside-Down Hold (Inverted Flight)';
+      y += 24.0;
+      bank = 180.0;
+    } else if (i === 44) {
+      name = 'Colossus Upside-Down Hold Flip 2 (Upright)';
+      bank = 0;
+    } else if (i >= 45 && i <= 49) {
+      name = 'Cargo Hangar Bay & Staging Rack Towers';
+      bank = -6;
+    } else if (i >= 50 && i <= 54) {
+      name = 'Trench Run & Barbette Defense Turrets';
+      bank = 4;
+    } else if (i >= 55 && i <= 57) {
+      name = 'Hull Breach Exit & 650m Sensor Boom';
+      bank = 16;
+    } else if (i >= 58 && i <= 60) {
+      name = 'Wreck Graveyard Sweeper';
+      bank = 24;
+    } else if (i >= 61) {
       name = 'Grand Home Sweeper';
       bank = 28;
     }
@@ -532,53 +549,59 @@ export function createSpaceTrack() {
     controlPoints.push(pt(x, y, z, bank, name));
   }
 
-  // Feature markers
+  // Feature markers aligned to the 26.6 km space circuit
   const features = {
     name: 'space',
     flips: [
-      [3440, 3680],   // Gravity Flip 1 (180 deg turnover, climb 24 m to overhead deck)
-      [4520, 4760],   // Gravity Flip 2 (180 deg turnover, descent 24 m to standard deck)
+      [6750, 7000],   // Pre-derelict Flip 1 (180 deg turnover, climb 24 m to overhead deck)
+      [8750, 9050],   // Pre-derelict Flip 2 (180 deg turnover, descent 24 m to standard deck)
+      [15900, 16140], // Colossus Upside-Down Hold Flip 1 (180 deg turnover into inverted hold flight)
+      [18000, 18240], // Colossus Upside-Down Hold Flip 2 (180 deg turnover back upright into hangar)
     ],
     gaps: [
-      [1650, 1800],   // Jump Gap 1 (150 m leap)
-      [7500, 7650],   // Jump Gap 2 (150 m leap)
-      [10520, 10640], // The Break (120 m vacuum leap across derelict fracture)
+      [3300, 3450],   // Jump Gap 1 (150 m leap)
+      [10900, 11050], // Jump Gap 2 (150 m leap)
+      [14700, 14850], // The Break (150 m vacuum leap across Colossus fracture)
     ],
     loops: [
-      [2050, 2600],   // Vertical Loop (~550 m circumference)
+      [4700, 5300],   // Vertical Loop (~600 m circumference)
     ],
     tunnels: [
-      [6400, 7400],   // Meteorite Cave Glass Tunnel (1000 m)
-      [9350, 10520],  // Derelict Engine Bell & Reactor Hall (1170 m)
-      [10640, 11400], // Derelict Forward Cargo Hangar (760 m)
+      [9800, 10800],  // Meteorite Cave Glass Tunnel (1000 m)
+      [12000, 14700], // Colossus Engine Bell & Reactor Hall (2700 m)
+      [15600, 18600], // Colossus Upside-Down Hold (3000 m)
+      [18600, 22400], // Colossus Cargo Hangar & Trench Run (3800 m)
     ],
     pads: [
-      // Boost pads placed along key acceleration zones
       { s: 400, x: 0, kind: 'boost' },
-      { s: 1550, x: 0, kind: 'boost' },   // Pre-jump pad 1
-      { s: 1980, x: 0, kind: 'boost' },   // Pre-loop boost
-      { s: 3600, x: 0, kind: 'boost' },   // Post-flip 1 boost pad
-      { s: 4750, x: 0, kind: 'boost' },   // Pre-flip 2 boost pad
-      { s: 5200, x: -8, kind: 'boost' },
-      { s: 6300, x: 0, kind: 'boost' },   // Cave entry pad
-      { s: 7400, x: 0, kind: 'boost' },   // Pre-jump pad 2
-      { s: 9200, x: 0, kind: 'boost' },   // Pre-derelict boost pad
-      { s: 10480, x: 0, kind: 'boost' },  // Boost pad between halves (The Break)
-      { s: 12400, x: 0, kind: 'boost' },  // Final straight pad
+      { s: 3150, x: 0, kind: 'boost' },   // Pre-jump pad 1
+      { s: 4550, x: 0, kind: 'boost' },   // Pre-loop boost
+      { s: 6600, x: 0, kind: 'boost' },   // Pre-flip 1 boost pad
+      { s: 8650, x: 0, kind: 'boost' },   // Pre-flip 2 boost pad
+      { s: 9700, x: 0, kind: 'boost' },   // Meteorite tunnel entry
+      { s: 10750, x: 0, kind: 'boost' },  // Pre-jump pad 2
+      { s: 11850, x: 0, kind: 'boost' },  // Pre-derelict boost pad
+      { s: 14650, x: 0, kind: 'boost' },  // Boost pad before The Break vacuum leap
+      { s: 15750, x: 0, kind: 'boost' },  // Pre-hold flip 1
+      { s: 17900, x: 0, kind: 'boost' },  // Pre-hold flip 2
+      { s: 20450, x: 0, kind: 'boost' },  // Trench run entry boost
+      { s: 22250, x: 0, kind: 'boost' },  // Trench run exit / breach pad
+      { s: 24800, x: 0, kind: 'boost' },  // Final straight pad
     ],
     gates: [
-      // Light gates (color rings)
       { s: 300, color: 0x00d2ff },
-      { s: 1600, color: 0xffaa00 },
-      { s: 2700, color: 0x00ff88 },
-      { s: 3350, color: 0xa855f7 }, // Magenta gate before Gravity Flip 1
-      { s: 4200, color: 0xa855f7 },
-      { s: 5050, color: 0x00d2ff }, // Cyan gate after Gravity Flip 2
-      { s: 6250, color: 0x00d2ff },
-      { s: 7450, color: 0xff3366 },
-      { s: 9250, color: 0xff8800 }, // Orange gate before the Colossus
-      { s: 11450, color: 0x00ff88 }, // Exit breach gate
-      { s: 12500, color: 0x00d2ff },
+      { s: 3200, color: 0xffaa00 },
+      { s: 5400, color: 0x00ff88 },
+      { s: 6650, color: 0xa855f7 }, // Magenta gate before Gravity Flip 1
+      { s: 9150, color: 0x00d2ff }, // Cyan gate after Gravity Flip 2
+      { s: 9750, color: 0x00d2ff }, // Cyan gate at Meteorite Cave
+      { s: 10800, color: 0xff3366 },
+      { s: 11900, color: 0xff8800 }, // Orange gate before the Colossus Engine Bell
+      { s: 15800, color: 0xec4899 }, // Magenta-violet gate before Upside-Down Hold Flip 1
+      { s: 18100, color: 0xec4899 }, // Magenta-violet gate before Upside-Down Hold Flip 2
+      { s: 20500, color: 0x00d2ff }, // Trench run gate
+      { s: 22400, color: 0x00ff88 }, // Exit breach gate
+      { s: 24900, color: 0x00d2ff },
     ]
   };
 

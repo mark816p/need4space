@@ -272,9 +272,9 @@ export class MenuManager {
           <div class="circuit-card ${curCircuit === 'space' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(0, 210, 255, 0.08); border: 1px solid var(--accent-cyan); border-radius: 6px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
               <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">ORBITAL STATION</span>
-              <span style="font-family: Rajdhani, sans-serif; color: var(--accent-cyan); font-weight: 700;">13.6 KM</span>
+              <span style="font-family: Rajdhani, sans-serif; color: var(--accent-cyan); font-weight: 700;">26.6 KM</span>
             </div>
-            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">The high-altitude space circuit orbiting gas giant Solaris IV. Threads through the Titan-class derelict Colossus with glowing reactors and hull fracture jump.</p>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">High-speed orbit over gas giant Solaris IV. Threads the 12 km derelict Colossus through its engine bell, pulsing reactor hall, vacuum break leap, upside-down hold, and barbette trench run.</p>
             <button class="btn btn-primary" data-circuit="space" style="width: 100%;">${curCircuit === 'space' ? 'CURRENT CIRCUIT' : 'ENGAGE SPACE'}</button>
           </div>
           <div class="circuit-card ${curCircuit === 'forest' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(0, 255, 136, 0.08); border: 1px solid var(--accent-green); border-radius: 6px;">
@@ -282,7 +282,7 @@ export class MenuManager {
               <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">FOREST MOON</span>
               <span style="font-family: Rajdhani, sans-serif; color: var(--accent-green); font-weight: 700;">13.8 KM</span>
             </div>
-            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">A lush jungle world with floating islands, thundering waterfalls, and an ancient colossal reptilian skeleton spanning the track.</p>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">Lush canopy world featuring floating islands, the 2 km hollow hill cave with subterranean lake, and two gravity flips flying inverted past the colossal reptile skull.</p>
             <button class="btn btn-primary" data-circuit="forest" style="width: 100%; border-color: var(--accent-green);">${curCircuit === 'forest' ? 'CURRENT CIRCUIT' : 'ENGAGE FOREST'}</button>
           </div>
           <div class="circuit-card ${curCircuit === 'ice' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(56, 189, 248, 0.08); border: 1px solid #38bdf8; border-radius: 6px;">

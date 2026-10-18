@@ -9,6 +9,7 @@ import { WaterfallSystem } from './water.js';
 import { CreaturesSystem } from './creatures.js';
 import { OvergrowthSystem } from './overgrowth.js';
 import { ColossalSkeleton } from './skeleton.js';
+import { ForestCave } from './cave.js';
 
 export const FOREST_SUN_DIR = new THREE.Vector3(0.55, 0.52, -0.65).normalize();
 
@@ -76,13 +77,20 @@ export class ForestWorld {
     // 10. The Colossal Skeleton (Jaws, Cranium, Spine, Ribs)
     this.skeleton = new ColossalSkeleton(this.scene, track);
 
+    // 11. Hollow Hill 2 km Cave System (Glowworms, Waterfall & Lake, Crystals, Slalom, Roots, Fungi, River, Sinkholes)
+    this.cave = new ForestCave(this.scene, track);
+
     this.time = 0;
     this.ready = true;
   }
 
   _initLights() {
+    this.baseSunIntensity = 3.4;
+    this.baseSunMidIntensity = 0.0;
+    this.baseHemiIntensity = 0.85;
+
     // Primary Sunlight (rich warm daylight 5800K)
-    this.sun = new THREE.DirectionalLight(0xfffaed, 3.4);
+    this.sun = new THREE.DirectionalLight(0xfffaed, this.baseSunIntensity);
     this.sun.position.copy(this.sunDir).multiplyScalar(600);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.width = 2048;
@@ -97,14 +105,14 @@ export class ForestWorld {
     this.scene.add(this.sun);
 
     // Secondary cascade
-    this.sunMid = new THREE.DirectionalLight(0xfffaed, 0.0);
+    this.sunMid = new THREE.DirectionalLight(0xfffaed, this.baseSunMidIntensity);
     this.sunMid.position.copy(this.sunDir).multiplyScalar(1500);
     this.scene.add(this.sunMid);
 
     // Sky Light + Jungle Canopy Bounce Ambient
     // Top = Blue sky hemisphere (0x38bdf8), Bottom = Emerald canopy bounce (0x0f3d1f)
-    const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x0f3d1f, 0.85);
-    this.scene.add(hemiLight);
+    this.hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x0f3d1f, this.baseHemiIntensity);
+    this.scene.add(this.hemiLight);
 
     // Sky scene lighting
     const skySun = new THREE.DirectionalLight(0xfffaed, 2.5);
@@ -129,6 +137,23 @@ export class ForestWorld {
     if (this.flora) this.flora.update(dt);
     if (this.waterfalls) this.waterfalls.update(dt);
     if (this.creatures) this.creatures.update(dt, this.time);
+    if (this.cave) {
+      this.cave.update(dt, this.time);
+
+      // Cave lighting modulation: setCave dark
+      const arcS = s !== undefined ? s : 0;
+      const caveState = this.cave.inCave(arcS);
+      if (caveState.inside) {
+        const daylight = 1.0 - (caveState.darkness * (1.0 - caveState.sinkhole));
+        this.sun.intensity = this.baseSunIntensity * daylight;
+        this.hemiLight.intensity = this.baseHemiIntensity * (0.12 + 0.88 * daylight);
+        this.headlightK = 0.2 + 0.8 * caveState.darkness;
+      } else {
+        this.sun.intensity = this.baseSunIntensity;
+        this.hemiLight.intensity = this.baseHemiIntensity;
+        this.headlightK = 0.2;
+      }
+    }
 
     // Sky camera tracks player camera orientation but stays centered at origin
     if (camera && this.skyCam) {

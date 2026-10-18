@@ -1,10 +1,20 @@
-// src/wreck.js — Derelict v1 3D Colossus construction: Engine Bell, Reactor Hall, The Break, and Graveyard
-// Why: "sparks, warm reactors, swaying cables, sensor boom; an orange gate before it, a pad between the halves, running lights"
+// src/wreck.js — Derelict 12 km Colossus megastructure construction & simulation
+// Why: "the derelict a colossus to thread for 12 km (lap 26.6 km). Details in §H.1 (zones).
+// Follow-ups: rack towers in the hangar, hulks lit and painted, the break, cheaper light loop;
+// trench walls over the deck, turrets up on barbettes, cheaper sun shadow"
 // "track passes through bell/hall with correct darkness; ships' lights on; no light floating in the void"
 
 import * as THREE from 'three';
 import { COLOSSUS_LOCATION, COLOSSUS_PIECES, GRAVEYARD } from './wreckplan.js';
 import { getChamberDarkness, getReactorWarmth, isDarkChamber } from './wreckzones.js';
+
+// Module-level scratch vectors to prevent runtime allocations
+const _f = {};
+const _fA = {};
+const _fB = {};
+const _m = new THREE.Matrix4();
+const _pos = new THREE.Vector3();
+const _dir = new THREE.Vector3();
 
 export class DerelictWreck {
   constructor(scene, track) {
@@ -17,16 +27,18 @@ export class DerelictWreck {
     this.runningLights = [];
     this.reactorMeshes = [];
     this.reactorLights = [];
+    this.holdBeacons = [];
     this.time = 0;
-    this.core1Pos = new THREE.Vector3();
-    this.core2Pos = new THREE.Vector3();
+    this.corePositions = [];
 
-    // Build the Colossus structural sections
+    // Build the Colossus structural sections along the 12 km corridor
     this._buildMaterials();
     this._buildEngineBell();
     this._buildReactorHall();
     this._buildTheBreak();
+    this._buildUpsideDownHold();
     this._buildForwardHangar();
+    this._buildTrenchRun();
     this._buildSensorBoom();
     this._buildOrangeGate();
     this._buildGraveyard();
@@ -60,7 +72,28 @@ export class DerelictWreck {
       side: THREE.DoubleSide
     });
 
-    // Pulsating warm reactor core
+    // Heavy armored trench walls
+    this.trenchMat = new THREE.MeshStandardMaterial({
+      color: 0x282c35,
+      roughness: 0.85,
+      metalness: 0.45,
+      side: THREE.DoubleSide
+    });
+
+    // Gunmetal barbettes and defense turrets
+    this.turretMat = new THREE.MeshStandardMaterial({
+      color: 0x1e2026,
+      roughness: 0.65,
+      metalness: 0.75
+    });
+
+    this.barrelMat = new THREE.MeshStandardMaterial({
+      color: 0x131518,
+      roughness: 0.5,
+      metalness: 0.85
+    });
+
+    // Pulsating warm reactor core material
     this.reactorMat = new THREE.MeshStandardMaterial({
       color: 0xff6600,
       emissive: 0xff3300,
@@ -69,20 +102,36 @@ export class DerelictWreck {
       metalness: 0.2
     });
 
-    // Navigation strobe lenses
+    // Navigation and warning strobe lenses
     this.strobeMatRed = new THREE.MeshBasicMaterial({ color: 0xff2222 });
     this.strobeMatGreen = new THREE.MeshBasicMaterial({ color: 0x22ff44 });
     this.strobeMatAmber = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+    this.strobeMatCyan = new THREE.MeshBasicMaterial({ color: 0x00d2ff });
+
+    // Livery material cache for painted graveyard hulks
+    this.liveryMats = new Map();
+  }
+
+  _getLiveryMaterial(colorHex) {
+    if (!this.liveryMats.has(colorHex)) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: colorHex,
+        roughness: 0.7,
+        metalness: 0.4
+      });
+      this.liveryMats.set(colorHex, mat);
+    }
+    return this.liveryMats.get(colorHex);
   }
 
   _buildEngineBell() {
-    const fBell = {};
-    this.track.frame(COLOSSUS_PIECES.engineBell.startS, fBell);
+    const p = COLOSSUS_PIECES.engineBell;
+    this.track.frame(p.startS, _fA);
 
     const bellGroup = new THREE.Group();
-    const len = COLOSSUS_PIECES.engineBell.length;
-    const rMouth = COLOSSUS_PIECES.engineBell.mouthRadius;
-    const rThroat = COLOSSUS_PIECES.engineBell.throatRadius;
+    const len = p.length;
+    const rMouth = p.mouthRadius;
+    const rThroat = p.throatRadius;
 
     // Truncated conical bell nozzle
     const geom = new THREE.CylinderGeometry(rThroat, rMouth, len, 32, 8, true);
@@ -92,8 +141,9 @@ export class DerelictWreck {
     bellGroup.add(bellMesh);
 
     // Reinforcement cooling rings along bell exterior
-    for (let i = 0; i < 6; i++) {
-      const frac = i / 5.0;
+    const ringCount = p.coolingRings || 8;
+    for (let i = 0; i < ringCount; i++) {
+      const frac = i / (ringCount - 1);
       const ringR = THREE.MathUtils.lerp(rMouth, rThroat, frac) + 1.2;
       const ringGeom = new THREE.TorusGeometry(ringR, 1.8, 8, 32);
       const ringMesh = new THREE.Mesh(ringGeom, this.hullMat);
@@ -101,33 +151,30 @@ export class DerelictWreck {
       bellGroup.add(ringMesh);
     }
 
-    const m = new THREE.Matrix4().makeBasis(fBell.R, fBell.U, fBell.T);
-    bellGroup.quaternion.setFromRotationMatrix(m);
-    bellGroup.position.copy(fBell.pos);
+    _m.makeBasis(_fA.R, _fA.U, _fA.T);
+    bellGroup.quaternion.setFromRotationMatrix(_m);
+    bellGroup.position.copy(_fA.pos);
     this.group.add(bellGroup);
   }
 
   _buildReactorHall() {
     const p = COLOSSUS_PIECES.reactorHall;
-    const fStart = {};
-    const fEnd = {};
-    this.track.frame(p.startS, fStart);
-    this.track.frame(p.endS, fEnd);
+    this.track.frame(p.startS, _fA);
+    this.track.frame(p.endS, _fB);
 
-    const steps = 14;
-    const f = {};
+    const steps = 16;
     const hallGroup = new THREE.Group();
 
-    // Ribbed tubular octagonal chamber sweeping along track frames
+    // Ribbed octagonal containment chamber sweeping along track frames
     for (let i = 0; i <= steps; i++) {
       const s = THREE.MathUtils.lerp(p.startS, p.endS, i / steps);
-      this.track.frame(s, f);
+      this.track.frame(s, _f);
 
-      const m = new THREE.Matrix4().makeBasis(f.R, f.U, f.T);
-      const ringGeom = new THREE.TorusGeometry(p.width * 0.5, 3.2, 8, 8);
+      _m.makeBasis(_f.R, _f.U, _f.T);
+      const ringGeom = new THREE.TorusGeometry(p.width * 0.5, 3.5, 8, 8);
       const ring = new THREE.Mesh(ringGeom, this.innerMat);
-      ring.position.copy(f.pos).addScaledVector(f.U, 12.0);
-      ring.quaternion.setFromRotationMatrix(m);
+      ring.position.copy(_f.pos).addScaledVector(_f.U, 14.0);
+      ring.quaternion.setFromRotationMatrix(_m);
       hallGroup.add(ring);
     }
 
@@ -135,43 +182,41 @@ export class DerelictWreck {
     const shellGeom = new THREE.CylinderGeometry(p.width * 0.52, p.width * 0.52, p.length, 8, 4, true);
     shellGeom.rotateX(Math.PI / 2);
     const shellMesh = new THREE.Mesh(shellGeom, this.hullMat);
-    const midPos = fStart.pos.clone().lerp(fEnd.pos, 0.5).addScaledVector(fStart.U, 12.0);
+    const midPos = _fA.pos.clone().lerp(_fB.pos, 0.5).addScaledVector(_fA.U, 14.0);
     shellMesh.position.copy(midPos);
-    const mMid = new THREE.Matrix4().makeBasis(fStart.R, fStart.U, fStart.T);
-    shellMesh.quaternion.setFromRotationMatrix(mMid);
+    _m.makeBasis(_fA.R, _fA.U, _fA.T);
+    shellMesh.quaternion.setFromRotationMatrix(_m);
     hallGroup.add(shellMesh);
 
-    // Twin Reactor Cores (Torus magnetic confinement rings with warm emission)
-    // Anchored directly to track frames inside the hall (Zero floating light in the void!)
-    const fCore1 = {};
-    this.track.frame(p.startS + 200.0, fCore1);
-    this.core1Pos.copy(fCore1.pos).addScaledVector(fCore1.U, 24.0);
+    // Three Antimatter & Fusion Reactor Cores anchored inside containment hall
+    const cores = p.cores || [
+      { id: 'core_1', distS: p.startS + 350.0, radius: 34.0, color: 0xff5500 },
+      { id: 'core_2', distS: p.startS + 850.0, radius: 36.0, color: 0xff4400 },
+      { id: 'core_3', distS: p.startS + 1350.0, radius: 32.0, color: 0xff6600 }
+    ];
 
-    const fCore2 = {};
-    this.track.frame(p.startS + 500.0, fCore2);
-    this.core2Pos.copy(fCore2.pos).addScaledVector(fCore2.U, 24.0);
+    for (let k = 0; k < cores.length; k++) {
+      const cData = cores[k];
+      const fCore = {};
+      this.track.frame(cData.distS, fCore);
+      const cPos = fCore.pos.clone().addScaledVector(fCore.U, 26.0);
+      this.corePositions.push(cPos);
 
-    const coreGeom = new THREE.TorusGeometry(p.core1.radius, 6.0, 16, 32);
-    const coreMesh1 = new THREE.Mesh(coreGeom, this.reactorMat);
-    coreMesh1.position.copy(this.core1Pos);
-    hallGroup.add(coreMesh1);
-    this.reactorMeshes.push(coreMesh1);
+      // Torus magnetic confinement ring
+      const coreGeom = new THREE.TorusGeometry(cData.radius, 6.5, 16, 32);
+      const coreMesh = new THREE.Mesh(coreGeom, this.reactorMat);
+      coreMesh.position.copy(cPos);
+      _m.makeBasis(fCore.R, fCore.U, fCore.T);
+      coreMesh.quaternion.setFromRotationMatrix(_m);
+      hallGroup.add(coreMesh);
+      this.reactorMeshes.push(coreMesh);
 
-    const coreMesh2 = new THREE.Mesh(coreGeom, this.reactorMat);
-    coreMesh2.position.copy(this.core2Pos);
-    hallGroup.add(coreMesh2);
-    this.reactorMeshes.push(coreMesh2);
-
-    // Warm reactor point lights fixed strictly inside the hall (Zero floating light in the void!)
-    const rLight1 = new THREE.PointLight(0xff5500, 3.5, 180, 1.8);
-    rLight1.position.copy(this.core1Pos);
-    hallGroup.add(rLight1);
-    this.reactorLights.push(rLight1);
-
-    const rLight2 = new THREE.PointLight(0xff4400, 3.5, 180, 1.8);
-    rLight2.position.copy(this.core2Pos);
-    hallGroup.add(rLight2);
-    this.reactorLights.push(rLight2);
+      // Warm reactor point light fixed strictly inside the hall (Zero light floating in the void!)
+      const rLight = new THREE.PointLight(cData.color || 0xff5500, 3.5, 180, 1.8);
+      rLight.position.copy(cPos);
+      hallGroup.add(rLight);
+      this.reactorLights.push(rLight);
+    }
 
     // Swaying Heavy Power Cables
     this._buildSwayingCables(hallGroup, p);
@@ -180,46 +225,45 @@ export class DerelictWreck {
   }
 
   _buildSwayingCables(parentGroup, p) {
-    for (let i = 0; i < 5; i++) {
-      const s = p.startS + 120.0 + i * 110.0;
-      const fCable = {};
-      this.track.frame(s, fCable);
-      const m = new THREE.Matrix4().makeBasis(fCable.R, fCable.U, fCable.T);
+    const cableCount = (p.cables && p.cables.length) ? p.cables.length : 5;
+    for (let i = 0; i < cableCount; i++) {
+      const s = p.startS + 140.0 + i * 260.0;
+      this.track.frame(s, _f);
+      _m.makeBasis(_f.R, _f.U, _f.T);
+
       const halfW = p.width * 0.42;
-      const sag = 15.0 + i * 1.5;
+      const sag = 16.0 + i * 2.0;
       const curve = new THREE.QuadraticBezierCurve3(
-        new THREE.Vector3(-halfW, 26, 0),
-        new THREE.Vector3(0, 26 - sag, 0),
-        new THREE.Vector3(halfW, 26, 0)
+        new THREE.Vector3(-halfW, 28, 0),
+        new THREE.Vector3(0, 28 - sag, 0),
+        new THREE.Vector3(halfW, 28, 0)
       );
-      const geom = new THREE.TubeGeometry(curve, 16, 0.85, 6, false);
+      const geom = new THREE.TubeGeometry(curve, 16, 0.9, 6, false);
       const mesh = new THREE.Mesh(geom, this.innerMat);
-      mesh.quaternion.setFromRotationMatrix(m);
-      mesh.position.copy(fCable.pos);
+      mesh.quaternion.setFromRotationMatrix(_m);
+      mesh.position.copy(_f.pos);
       parentGroup.add(mesh);
-      this.cables.push({ mesh, phase: i * 1.2 });
+      this.cables.push({ mesh, phase: i * 1.35 });
     }
   }
 
   _buildTheBreak() {
     const p = COLOSSUS_PIECES.theBreak;
-    const fGap0 = {};
-    const fGap1 = {};
-    this.track.frame(p.gapStartS, fGap0);
-    this.track.frame(p.gapEndS, fGap1);
+    this.track.frame(p.gapStartS, _fA);
+    this.track.frame(p.gapEndS, _fB);
 
     const breakGroup = new THREE.Group();
 
     // Shattered hull plates curling outward at fracture lip A
     const tearGeomA = new THREE.BoxGeometry(COLOSSUS_PIECES.reactorHall.width * 1.1, p.platingCurl * 1.5, 8.0);
     const tearMeshA = new THREE.Mesh(tearGeomA, this.hullMat);
-    tearMeshA.position.copy(fGap0.pos).addScaledVector(fGap0.U, 18.0).addScaledVector(fGap0.T, -6.0);
+    tearMeshA.position.copy(_fA.pos).addScaledVector(_fA.U, 18.0).addScaledVector(_fA.T, -6.0);
     tearMeshA.rotation.x = -0.35;
     breakGroup.add(tearMeshA);
 
     // Shattered hull plates curling outward at fracture lip B
     const tearMeshB = new THREE.Mesh(tearGeomA, this.hullMat);
-    tearMeshB.position.copy(fGap1.pos).addScaledVector(fGap1.U, 18.0).addScaledVector(fGap1.T, 6.0);
+    tearMeshB.position.copy(_fB.pos).addScaledVector(_fB.U, 18.0).addScaledVector(_fB.T, 6.0);
     tearMeshB.rotation.x = 0.35;
     breakGroup.add(tearMeshB);
 
@@ -227,12 +271,12 @@ export class DerelictWreck {
     for (let k = -2; k <= 2; k++) {
       const sparGeom = new THREE.BoxGeometry(2.2, 24.0, 2.2);
       const sparA = new THREE.Mesh(sparGeom, this.innerMat);
-      sparA.position.copy(fGap0.pos).addScaledVector(fGap0.R, k * 22.0).addScaledVector(fGap0.U, 12.0);
+      sparA.position.copy(_fA.pos).addScaledVector(_fA.R, k * 22.0).addScaledVector(_fA.U, 12.0);
       sparA.rotation.z = k * 0.15;
       breakGroup.add(sparA);
 
       const sparB = new THREE.Mesh(sparGeom, this.innerMat);
-      sparB.position.copy(fGap1.pos).addScaledVector(fGap1.R, k * 22.0).addScaledVector(fGap1.U, 12.0);
+      sparB.position.copy(_fB.pos).addScaledVector(_fB.R, k * 22.0).addScaledVector(_fB.U, 12.0);
       sparB.rotation.z = -k * 0.15;
       breakGroup.add(sparB);
     }
@@ -240,49 +284,219 @@ export class DerelictWreck {
     this.group.add(breakGroup);
   }
 
-  _buildForwardHangar() {
-    const p = COLOSSUS_PIECES.cargoHangar;
-    const fStart = {};
-    const fEnd = {};
-    this.track.frame(p.startS, fStart);
-    this.track.frame(p.endS, fEnd);
+  _buildUpsideDownHold() {
+    const p = COLOSSUS_PIECES.upsideDownHold;
+    const holdGroup = new THREE.Group();
+    holdGroup.name = 'upside_down_hold';
 
-    const hangarGroup = new THREE.Group();
-    const f = {};
-    const steps = 12;
+    const steps = p.ribCount || 24;
+    const ribGeom = new THREE.TorusGeometry(p.width * 0.48, 3.2, 6, 8);
+    const beaconGeom = new THREE.SphereGeometry(1.6, 8, 8);
 
-    // Hangar bays and ribbed bulkheads
     for (let i = 0; i <= steps; i++) {
       const s = THREE.MathUtils.lerp(p.startS, p.endS, i / steps);
-      this.track.frame(s, f);
+      this.track.frame(s, _f);
+      _m.makeBasis(_f.R, _f.U, _f.T);
 
-      const m = new THREE.Matrix4().makeBasis(f.R, f.U, f.T);
-      const ringGeom = new THREE.TorusGeometry(p.width * 0.48, 2.8, 6, 8);
-      const ring = new THREE.Mesh(ringGeom, this.innerMat);
-      ring.position.copy(f.pos).addScaledVector(f.U, 10.0);
-      ring.quaternion.setFromRotationMatrix(m);
-      hangarGroup.add(ring);
+      // Inverted structural rib spanning the hold ceiling & walls
+      const rib = new THREE.Mesh(ribGeom, this.innerMat);
+      rib.position.copy(_f.pos).addScaledVector(_f.U, 12.0);
+      rib.quaternion.setFromRotationMatrix(_m);
+      holdGroup.add(rib);
+
+      // Amber hold warning beacons lining the upper superstructure
+      if (i % 2 === 0) {
+        const beaconL = new THREE.Mesh(beaconGeom, this.strobeMatAmber);
+        beaconL.position.copy(_f.pos).addScaledVector(_f.R, -p.width * 0.42).addScaledVector(_f.U, 16.0);
+        holdGroup.add(beaconL);
+        this.holdBeacons.push({ mesh: beaconL, phase: i * 0.6 });
+
+        const beaconR = new THREE.Mesh(beaconGeom, this.strobeMatAmber);
+        beaconR.position.copy(_f.pos).addScaledVector(_f.R, p.width * 0.42).addScaledVector(_f.U, 16.0);
+        holdGroup.add(beaconR);
+        this.holdBeacons.push({ mesh: beaconR, phase: i * 0.6 + Math.PI });
+      }
     }
 
-    // Running Navigation Strobes along hull frames
-    for (let i = 0; i < p.runningLights.length; i++) {
-      const l = p.runningLights[i];
-      const mat = l.color === 0xff2222 ? this.strobeMatRed : (l.color === 0x22ff44 ? this.strobeMatGreen : this.strobeMatAmber);
-      const lightMesh = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 8), mat);
-      lightMesh.position.copy(fStart.pos).addScaledVector(fStart.R, l.x * 0.8).addScaledVector(fStart.U, l.y * 0.8).addScaledVector(fStart.T, l.z * 0.8);
-      hangarGroup.add(lightMesh);
-      this.runningLights.push({ mesh: lightMesh, phase: i * 0.8 });
+    // Outer hull envelope surrounding the hold
+    const holdShellGeom = new THREE.CylinderGeometry(p.width * 0.52, p.width * 0.52, p.endS - p.startS, 8, 4, true);
+    holdShellGeom.rotateX(Math.PI / 2);
+    const holdShell = new THREE.Mesh(holdShellGeom, this.hullMat);
+    this.track.frame(p.startS, _fA);
+    this.track.frame(p.endS, _fB);
+    holdShell.position.copy(_fA.pos).lerp(_fB.pos, 0.5).addScaledVector(_fA.U, 12.0);
+    _m.makeBasis(_fA.R, _fA.U, _fA.T);
+    holdShell.quaternion.setFromRotationMatrix(_m);
+    holdGroup.add(holdShell);
+
+    this.group.add(holdGroup);
+  }
+
+  _buildForwardHangar() {
+    const p = COLOSSUS_PIECES.cargoHangar;
+    const hangarGroup = new THREE.Group();
+    hangarGroup.name = 'cargo_hangar';
+
+    const steps = 18;
+    for (let i = 0; i <= steps; i++) {
+      const s = THREE.MathUtils.lerp(p.startS, p.endS, i / steps);
+      this.track.frame(s, _f);
+      _m.makeBasis(_f.R, _f.U, _f.T);
+
+      // Hangar arch portals
+      const archGeom = new THREE.TorusGeometry(p.width * 0.46, 3.0, 6, 8);
+      const arch = new THREE.Mesh(archGeom, this.innerMat);
+      arch.position.copy(_f.pos).addScaledVector(_f.U, 10.0);
+      arch.quaternion.setFromRotationMatrix(_m);
+      hangarGroup.add(arch);
+    }
+
+    // Multi-tiered staging rack towers flanking the hangar walls
+    const rackTowers = p.rackTowers || [];
+    const containerGeom = new THREE.BoxGeometry(14.0, 9.0, 24.0);
+    const uprightGeom = new THREE.BoxGeometry(2.5, 75.0, 2.5);
+    const beamGeom = new THREE.BoxGeometry(36.0, 1.8, 2.5);
+
+    for (let i = 0; i < rackTowers.length; i++) {
+      const rt = rackTowers[i];
+      this.track.frame(rt.s, _f);
+      _m.makeBasis(_f.R, _f.U, _f.T);
+
+      const towerGroup = new THREE.Group();
+      towerGroup.quaternion.setFromRotationMatrix(_m);
+
+      // Uprights
+      const upL = new THREE.Mesh(uprightGeom, this.innerMat);
+      upL.position.set(-16.0, rt.height * 0.5, 0);
+      towerGroup.add(upL);
+
+      const upR = new THREE.Mesh(uprightGeom, this.innerMat);
+      upR.position.set(16.0, rt.height * 0.5, 0);
+      towerGroup.add(upR);
+
+      // Staging shelf beams & stacked freight containers
+      for (let tier = 1; tier <= 4; tier++) {
+        const yBeam = tier * 16.0;
+        const beam = new THREE.Mesh(beamGeom, this.innerMat);
+        beam.position.set(0, yBeam, 0);
+        towerGroup.add(beam);
+
+        // Container in rack
+        const cColor = (tier % 2 === 0) ? 0x00d2ff : 0xffaa00;
+        const cMesh = new THREE.Mesh(containerGeom, this._getLiveryMaterial(cColor));
+        cMesh.position.set(0, yBeam + 5.0, 0);
+        towerGroup.add(cMesh);
+      }
+
+      // Position tower flanking the track
+      const xOffset = rt.side * (56.0 * 0.5 + rt.width * 0.5 + 4.0);
+      towerGroup.position.copy(_f.pos).addScaledVector(_f.R, xOffset);
+      hangarGroup.add(towerGroup);
+    }
+
+    // Running Navigation Strobes along hangar guide rails
+    const lightGeom = new THREE.SphereGeometry(1.4, 8, 8);
+    for (let i = 0; i < steps; i += 2) {
+      const s = THREE.MathUtils.lerp(p.startS, p.endS, i / steps);
+      this.track.frame(s, _f);
+
+      // Port Red
+      const lightPort = new THREE.Mesh(lightGeom, this.strobeMatRed);
+      lightPort.position.copy(_f.pos).addScaledVector(_f.R, -p.width * 0.44).addScaledVector(_f.U, 6.0);
+      hangarGroup.add(lightPort);
+      this.runningLights.push({ mesh: lightPort, phase: i * 0.7 });
+
+      // Starboard Green
+      const lightStbd = new THREE.Mesh(lightGeom, this.strobeMatGreen);
+      lightStbd.position.copy(_f.pos).addScaledVector(_f.R, p.width * 0.44).addScaledVector(_f.U, 6.0);
+      hangarGroup.add(lightStbd);
+      this.runningLights.push({ mesh: lightStbd, phase: i * 0.7 + Math.PI });
     }
 
     this.group.add(hangarGroup);
+  }
+
+  _buildTrenchRun() {
+    const p = COLOSSUS_PIECES.trenchRun;
+    const trenchGroup = new THREE.Group();
+    trenchGroup.name = 'trench_run';
+
+    const wallH = p.wallHeight || 28.0;
+    const trackW = 56.0;
+    const wallDist = trackW * 0.5 + 4.5;
+    const steps = 24;
+
+    const wallSegmentGeom = new THREE.BoxGeometry(6.0, wallH, 80.0);
+    const barbetteBaseGeom = new THREE.CylinderGeometry(5.5, 6.5, 4.0, 16);
+    const turretHousingGeom = new THREE.BoxGeometry(7.0, 3.5, 9.0);
+    const barrelGeom = new THREE.CylinderGeometry(0.55, 0.55, 14.0, 8);
+    barrelGeom.rotateX(Math.PI / 2);
+
+    for (let i = 0; i <= steps; i++) {
+      const s = THREE.MathUtils.lerp(p.startS, p.endS, i / steps);
+      this.track.frame(s, _f);
+      _m.makeBasis(_f.R, _f.U, _f.T);
+
+      // Left trench wall
+      const wallL = new THREE.Mesh(wallSegmentGeom, this.trenchMat);
+      wallL.position.copy(_f.pos).addScaledVector(_f.R, -wallDist).addScaledVector(_f.U, wallH * 0.5);
+      wallL.quaternion.setFromRotationMatrix(_m);
+      trenchGroup.add(wallL);
+
+      // Right trench wall
+      const wallR = new THREE.Mesh(wallSegmentGeom, this.trenchMat);
+      wallR.position.copy(_f.pos).addScaledVector(_f.R, wallDist).addScaledVector(_f.U, wallH * 0.5);
+      wallR.quaternion.setFromRotationMatrix(_m);
+      trenchGroup.add(wallR);
+
+      // Heavy defense turrets up on barbettes along the trench parapet
+      if (i % 2 === 0) {
+        const side = (i % 4 === 0) ? -1 : 1;
+        const barbette = new THREE.Group();
+        barbette.quaternion.setFromRotationMatrix(_m);
+
+        // Circular pedestal
+        const bBase = new THREE.Mesh(barbetteBaseGeom, this.trenchMat);
+        bBase.position.set(0, 2.0, 0);
+        barbette.add(bBase);
+
+        // Armored turret housing
+        const tHousing = new THREE.Mesh(turretHousingGeom, this.turretMat);
+        tHousing.position.set(0, 5.5, 0);
+        barbette.add(tHousing);
+
+        // Twin gun barrels elevated skyward into space
+        const bL = new THREE.Mesh(barrelGeom, this.barrelMat);
+        bL.position.set(-1.8, 6.2, 5.0);
+        bL.rotation.x = -0.38; // 22 deg elevation
+        barbette.add(bL);
+
+        const bR = new THREE.Mesh(barrelGeom, this.barrelMat);
+        bR.position.set(1.8, 6.2, 5.0);
+        bR.rotation.x = -0.38;
+        barbette.add(bR);
+
+        // Barbette beacon light
+        const bBeacon = new THREE.Mesh(new THREE.SphereGeometry(1.2, 8, 8), this.strobeMatRed);
+        bBeacon.position.set(0, 7.8, 0);
+        barbette.add(bBeacon);
+        this.runningLights.push({ mesh: bBeacon, phase: i * 0.5 });
+
+        // Position on top of trench wall
+        barbette.position.copy(_f.pos).addScaledVector(_f.R, side * wallDist).addScaledVector(_f.U, wallH);
+        trenchGroup.add(barbette);
+      }
+    }
+
+    this.group.add(trenchGroup);
   }
 
   _buildSensorBoom() {
     const p = COLOSSUS_PIECES.sensorBoom;
     const boomGroup = new THREE.Group();
 
-    // 450 m triangular lattice truss boom extending into open void
-    const trussGeom = new THREE.CylinderGeometry(1.6, 5.5, p.length, 3, 16);
+    // 650 m triangular lattice truss boom extending into open void
+    const trussGeom = new THREE.CylinderGeometry(1.8, 6.0, p.length, 3, 16);
     trussGeom.rotateX(Math.PI / 2);
     const trussMesh = new THREE.Mesh(trussGeom, this.hullMat);
     trussMesh.position.set(0, 0, p.length * 0.5);
@@ -297,19 +511,17 @@ export class DerelictWreck {
       boomGroup.add(dishMesh);
     }
 
-    const fExit = {};
-    this.track.frame(COLOSSUS_PIECES.breachExit.startS, fExit);
-    const boomOrigin = fExit.pos.clone().addScaledVector(fExit.R, 45.0).addScaledVector(fExit.U, 25.0);
+    this.track.frame(COLOSSUS_PIECES.breachExit.startS, _f);
+    const boomOrigin = _f.pos.clone().addScaledVector(_f.R, 45.0).addScaledVector(_f.U, 25.0);
     boomGroup.position.copy(boomOrigin);
-    const boomDir = fExit.R.clone().multiplyScalar(0.7).addScaledVector(fExit.U, 0.4).addScaledVector(fExit.T, 0.5).normalize();
+    const boomDir = _f.R.clone().multiplyScalar(0.7).addScaledVector(_f.U, 0.4).addScaledVector(_f.T, 0.5).normalize();
     boomGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), boomDir);
 
     this.group.add(boomGroup);
   }
 
   _buildOrangeGate() {
-    const fGate = {};
-    this.track.frame(COLOSSUS_PIECES.engineBell.startS - 100.0, fGate);
+    this.track.frame(COLOSSUS_PIECES.engineBell.startS - 100.0, _f);
 
     const gateGroup = new THREE.Group();
     gateGroup.name = 'derelict_orange_gate';
@@ -331,9 +543,9 @@ export class DerelictWreck {
     pR.position.set(36.0, 10.0, 0);
     gateGroup.add(pR);
 
-    const m = new THREE.Matrix4().makeBasis(fGate.R, fGate.U, fGate.T);
-    gateGroup.quaternion.setFromRotationMatrix(m);
-    gateGroup.position.copy(fGate.pos);
+    _m.makeBasis(_f.R, _f.U, _f.T);
+    gateGroup.quaternion.setFromRotationMatrix(_m);
+    gateGroup.position.copy(_f.pos);
     this.group.add(gateGroup);
   }
 
@@ -341,38 +553,60 @@ export class DerelictWreck {
     const yardGroup = new THREE.Group();
     yardGroup.name = 'wreck_graveyard';
 
-    const shardGeom = new THREE.BoxGeometry(24.0, 1.2, 42.0);
-    const podGeom = new THREE.CylinderGeometry(8.0, 8.0, 32.0, 8);
-    const wingGeom = new THREE.BoxGeometry(4.0, 0.4, 65.0);
+    const shardGeom = new THREE.BoxGeometry(26.0, 1.4, 46.0);
+    const podGeom = new THREE.CylinderGeometry(8.5, 8.5, 34.0, 8);
+    const wingGeom = new THREE.BoxGeometry(4.5, 0.5, 68.0);
+    const corvetteGeom = new THREE.ConeGeometry(18.0, 72.0, 6);
+    corvetteGeom.rotateX(Math.PI / 2);
 
     for (let i = 0; i < GRAVEYARD.length; i++) {
       const g = GRAVEYARD[i];
       let geom = shardGeom;
       if (g.type === 'freight_pod') geom = podGeom;
       if (g.type === 'solar_wing') geom = wingGeom;
+      if (g.type === 'corvette_hulk') geom = corvetteGeom;
 
-      const mesh = new THREE.Mesh(geom, this.hullMat);
-      mesh.position.set(g.x, g.y, g.z);
+      // Painted escort hulks with authentic faction liveries
+      const mat = g.livery ? this._getLiveryMaterial(g.livery) : this.hullMat;
+      const mesh = new THREE.Mesh(geom, mat);
+
+      // Locate along track frame at g.s
+      this.track.frame(g.s || 23500.0, _f);
+      _pos.copy(_f.pos).addScaledVector(_f.R, g.x).addScaledVector(_f.U, g.y).addScaledVector(_f.T, g.z || 0);
+
+      mesh.position.copy(_pos);
       mesh.rotation.set(g.rx, g.ry, g.rz);
       mesh.scale.setScalar(g.scale);
       yardGroup.add(mesh);
+
+      // Lit hulks with active blinking beacon lights drifting in the wake
+      if (g.lit) {
+        const beacon = new THREE.Mesh(new THREE.SphereGeometry(1.6, 8, 8), this.strobeMatCyan);
+        beacon.position.copy(_pos).addScaledVector(_f.U, 4.0 * g.scale);
+        yardGroup.add(beacon);
+        this.runningLights.push({ mesh: beacon, phase: i * 0.95 });
+      }
     }
 
     this.group.add(yardGroup);
   }
 
   _buildSparks() {
-    // 250 particle electrical arc sparks leaping from ruptured reactor conduit junctions
     const sparkCount = 250;
     const geom = new THREE.BufferGeometry();
     const pos = new Float32Array(sparkCount * 3);
     const vel = new Float32Array(sparkCount * 3);
 
+    const refCore = (this.corePositions.length > 0) ? this.corePositions[0] : new THREE.Vector3(-3200, 15, 250);
+
     for (let i = 0; i < sparkCount; i++) {
-      const core = (i % 2 === 0) ? this.core1Pos : this.core2Pos;
-      pos[i * 3] = core.x + (Math.random() - 0.5) * 30.0;
-      pos[i * 3 + 1] = core.y + (Math.random() - 0.5) * 20.0;
-      pos[i * 3 + 2] = core.z + (Math.random() - 0.5) * 30.0;
+      const core = (this.corePositions.length > 0)
+        ? this.corePositions[i % this.corePositions.length]
+        : refCore;
+
+      pos[i * 3] = core.x + (Math.random() - 0.5) * 32.0;
+      pos[i * 3 + 1] = core.y + (Math.random() - 0.5) * 22.0;
+      pos[i * 3 + 2] = core.z + (Math.random() - 0.5) * 32.0;
 
       vel[i * 3] = (Math.random() - 0.5) * 35.0;
       vel[i * 3 + 1] = (Math.random() - 0.5) * 35.0;
@@ -406,26 +640,29 @@ export class DerelictWreck {
 
     // 2. Animate pulsating reactor core glow
     const pulse = 1.0 + Math.sin(this.time * 3.5) * 0.25;
-    for (const rMesh of this.reactorMeshes) {
-      if (rMesh.material) {
-        rMesh.material.emissiveIntensity = 2.0 * pulse;
-      }
+    for (let i = 0; i < this.reactorMeshes.length; i++) {
+      this.reactorMeshes[i].material.emissiveIntensity = 2.0 * pulse;
     }
-    for (const rLight of this.reactorLights) {
-      rLight.intensity = 3.5 * pulse;
+    for (let i = 0; i < this.reactorLights.length; i++) {
+      this.reactorLights[i].intensity = 3.5 * pulse;
     }
 
-    // 3. Strobe running navigation lights
+    // 3. Strobe running navigation lights & beacons
     for (let i = 0; i < this.runningLights.length; i++) {
       const rl = this.runningLights[i];
-      const flash = (Math.sin(this.time * 4.0 + rl.phase) > 0.3) ? 1.0 : 0.15;
-      if (rl.mesh.material) {
-        rl.mesh.visible = flash > 0.5;
-      }
+      const flash = Math.sin(this.time * 4.2 + rl.phase) > 0.25;
+      rl.mesh.visible = flash;
     }
 
-    // 4. Update electrical sparks simulation
-    if (this.sparkPoints) {
+    // 4. Strobe upside-down hold warning beacons
+    for (let i = 0; i < this.holdBeacons.length; i++) {
+      const hb = this.holdBeacons[i];
+      const flash = Math.sin(this.time * 2.8 + hb.phase) > 0.1;
+      hb.mesh.visible = flash;
+    }
+
+    // 5. Update electrical sparks simulation
+    if (this.sparkPoints && this.corePositions.length > 0) {
       const attr = this.sparkPoints.geometry.attributes.position;
       const pos = attr.array;
       const vel = this.sparkVel;
@@ -436,8 +673,7 @@ export class DerelictWreck {
         pos[i * 3 + 1] += vel[i * 3 + 1] * dt;
         pos[i * 3 + 2] += vel[i * 3 + 2] * dt;
 
-        // Reset if drifted too far from reactor core
-        const core = (i % 2 === 0) ? this.core1Pos : this.core2Pos;
+        const core = this.corePositions[i % this.corePositions.length];
         const dx = pos[i * 3] - core.x;
         const dy = pos[i * 3 + 1] - core.y;
         const dz = pos[i * 3 + 2] - core.z;

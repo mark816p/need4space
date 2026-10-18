@@ -22,7 +22,7 @@
     }
   }
   </script>
-  <link rel="stylesheet" href="src/ui.css?v=2aed568c">
+  <link rel="stylesheet" href="src/ui.css?v=876af28c">
 </head>
 <body data-ui="loading">
   <canvas id="view" tabindex="0"></canvas>
@@ -66,6 +66,7 @@
   <div class="hp" id="hud-speed">
     <div class="speed-header">
       <span id="state">ENGINES OFF</span>
+      <span id="drift-chain" style="display: none;"></span>
       <span class="r-lbl" id="cam-name">CHASE</span>
     </div>
     <div class="spd-main">
@@ -77,7 +78,10 @@
     </div>
     <div class="bar-row" id="bst">
       <span>ENERGY</span>
-      <div class="bar-track"><div class="bar-fill" style="width: 100%;"></div></div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width: 100%;"></div>
+        <div id="bst-overflow" class="bar-fill overflow" style="width: 0%; display: none;"></div>
+      </div>
     </div>
     <div class="bar-row" id="thr">
       <span>THRUST</span>
