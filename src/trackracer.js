@@ -91,6 +91,15 @@ export class TrackRacer {
     this.pitchAngle = 0.0;       // Visual tilt angle in air
     this.isInFlip = false;
 
+    // Airbrake Charge System (1.6.0: 1 shot held up to 1.0s, 3.0s recharge; Anvil has 2 charges)
+    this.maxAirbrakes = this.handling.airbrakes || 1;
+    this.airbrakeCharges = this.maxAirbrakes;
+    this.airbrakeHoldTimer = 0.0;
+    this.airbrakeRechargeTimer = 0.0;
+    this.activeAirbrake = null;
+    this.airbrakeBlockedL = false;
+    this.airbrakeBlockedR = false;
+
     // Event bus (consumed by FX, audio, and HUD)
     this.events = [];
     this.lastWallHitTime = -10.0;
@@ -134,6 +143,11 @@ export class TrackRacer {
     this.pitchAccel = 0.0;
     this.pitchAngle = 0.0;
     this.isInFlip = false;
+    this.maxAirbrakes = this.handling.airbrakes || 1;
+    this.airbrakeCharges = this.maxAirbrakes;
+    this.airbrakeHoldTimer = 0.0;
+    this.airbrakeRechargeTimer = 0.0;
+    this.activeAirbrake = null;
     this.wrecked = false;
     this.updatePose(0);
   }
@@ -144,10 +158,53 @@ export class TrackRacer {
     const throttle = input.throttle ?? 1.0;
     const brake = input.brake ?? 0;
     const steer = input.steer ?? 0;
-    const airbrakeL = input.airbrakeL ?? false;
-    const airbrakeR = input.airbrakeR ?? false;
+    const rawAirbrakeL = input.airbrakeL ?? false;
+    const rawAirbrakeR = input.airbrakeR ?? false;
     const boostPressed = input.boost ?? false;
     const rawPitch = input.pitch ?? 0;
+
+    // 0. Airbrake Charge Management (1 shot = up to AIRBRAKE_HOLD 1.0s, AIRBRAKE_WAIT 3.0s recharge)
+    if (!rawAirbrakeL) this.airbrakeBlockedL = false;
+    if (!rawAirbrakeR) this.airbrakeBlockedR = false;
+
+    if (this.activeAirbrake) {
+      const stillHeld = (this.activeAirbrake === 'L' && rawAirbrakeL) || (this.activeAirbrake === 'R' && rawAirbrakeR);
+      if (stillHeld && this.airbrakeHoldTimer < 1.0) {
+        this.airbrakeHoldTimer += dt;
+      } else {
+        if (this.activeAirbrake === 'L' && rawAirbrakeL) this.airbrakeBlockedL = true;
+        if (this.activeAirbrake === 'R' && rawAirbrakeR) this.airbrakeBlockedR = true;
+        this.activeAirbrake = null;
+        this.airbrakeHoldTimer = 0.0;
+      }
+    } else {
+      if (rawAirbrakeL && !this.airbrakeBlockedL && this.airbrakeCharges > 0) {
+        this.airbrakeCharges--;
+        this.activeAirbrake = 'L';
+        this.airbrakeHoldTimer = 0.0;
+        this.emit('airbrake_fire', { side: 'L', charges: this.airbrakeCharges });
+      } else if (rawAirbrakeR && !this.airbrakeBlockedR && this.airbrakeCharges > 0) {
+        this.airbrakeCharges--;
+        this.activeAirbrake = 'R';
+        this.airbrakeHoldTimer = 0.0;
+        this.emit('airbrake_fire', { side: 'R', charges: this.airbrakeCharges });
+      }
+    }
+
+    // Recharge timer (AIRBRAKE_WAIT = 3.0s)
+    if (this.airbrakeCharges < this.maxAirbrakes) {
+      this.airbrakeRechargeTimer += dt;
+      if (this.airbrakeRechargeTimer >= 3.0) {
+        this.airbrakeCharges++;
+        this.airbrakeRechargeTimer = 0.0;
+        this.emit('airbrake_ready', { charges: this.airbrakeCharges });
+      }
+    } else {
+      this.airbrakeRechargeTimer = 0.0;
+    }
+
+    const airbrakeL = (this.activeAirbrake === 'L');
+    const airbrakeR = (this.activeAirbrake === 'R');
 
     // 1. Boost Management & Energy Overflow (> 1.0 up to 1.5)
     if (boostPressed && this.boostEnergy > 0.15 && !this.isBoosting) {
@@ -470,8 +527,11 @@ export class TrackRacer {
       _mBasis.makeBasis(this.frame.R, this.frame.U, this.frame.T);
       _qTrack.setFromRotationMatrix(_mBasis);
 
-      // Coordinate roll tilt into steering
-      const rollAngle = -steer * 0.32;
+      // Coordinate roll tilt into steering with anti-dip corner safety clamping
+      // Prevent long hulls' tail and wing corners from dipping into track deck on steep twists
+      const halfSpan = (this.model && this.model.halfSpan) || 5.2;
+      const maxRollFromHeight = Math.asin(clamp((this.h - 0.25) / halfSpan, 0.1, 0.85));
+      const rollAngle = clamp(-steer * 0.32, -maxRollFromHeight, maxRollFromHeight);
       const qRoll = new THREE.Quaternion().setFromAxisAngle(this.frame.T, rollAngle);
       this.quat.copy(_qTrack).multiply(qRoll);
 

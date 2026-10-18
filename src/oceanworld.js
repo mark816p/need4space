@@ -10,6 +10,11 @@ import * as THREE from 'three';
 import { OceanAtmosphere } from './sea.js';
 import { KeeperStatue } from './keeper.js';
 import { AtlantisCity } from './atlantis.js';
+import { SeabedEnvironment } from './seabed.js';
+import { SeaLife } from './sealife.js';
+import { KrakenSquid } from './squid.js';
+import { AlienPillarsRing } from './pillars.js';
+import { StormRain } from './rain.js';
 
 export class OceanWorld {
   constructor(scene, renderer, camera, track) {
@@ -59,6 +64,21 @@ export class OceanWorld {
 
     // 5. Directional / Ambient lighting
     this._initLighting();
+
+    // 6. Seabed environment (pinnacles, kelp beds, hydrothermal bubble vents, fish shoals, lanternfish, crabs)
+    this.seabed = new SeabedEnvironment(this.scene, this.track);
+
+    // 7. Sea life (dolphins, 60m leviathan, jellyfish, seabirds, surface ripples)
+    this.sealife = new SeaLife(this.scene, this.track);
+
+    // 8. The Kraken colossal cephalopod on grid sea stack
+    this.kraken = new KrakenSquid(this.scene, new THREE.Vector3(120, 16, 2820));
+
+    // 9. Colossal Alien Fluted Columns Ring
+    this.pillars = new AlienPillarsRing(this.scene, new THREE.Vector3(2000, -520, -3500), 2200, 8);
+
+    // 10. Storm Rain System (speed-elongated streaks, splashes, puddles, underwater shutoff)
+    this.rain = new StormRain(this.scene, this.camera, null);
 
     this.time = 0;
     this.ready = true;
@@ -259,6 +279,32 @@ export class OceanWorld {
       const b = THREE.MathUtils.lerp(0.15, 0.09, this.underK);
       this.oceanAmbient.color.setRGB(r, g, b);
       this.oceanAmbient.intensity = 0.9 - this.underK * 0.35;
+    }
+
+    // 7. Update Seabed Environment
+    if (this.seabed) {
+      this.seabed.update(dt, this.time);
+    }
+
+    // 8. Update Sea Life
+    if (this.sealife) {
+      this.sealife.update(dt, this.time);
+    }
+
+    // 9. Update Kraken
+    if (this.kraken) {
+      this.kraken.update(dt, this.time, shipPos);
+    }
+
+    // 10. Update Alien Pillars Ring
+    if (this.pillars) {
+      this.pillars.update(dt, this.time);
+    }
+
+    // 11. Update Storm Rain System
+    if (this.rain) {
+      const speed = shipPos ? 160.0 : 0.0;
+      this.rain.update(dt, camera, speed, this.underK);
     }
 
     // Sky camera tracks player camera orientation

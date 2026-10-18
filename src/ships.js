@@ -2,6 +2,9 @@
 // Why: "Ship-specific physics numbers live in HANDLING (ships.js), never in track.js.
 // Player assistance by difficulty lives in PERKS; rivals get none."
 
+export const AIRBRAKE_HOLD = 1.0; // s max hold duration per charge
+export const AIRBRAKE_WAIT = 3.0; // s recharge time
+
 export const HANDLING = {
   feather: {
     name: 'Feather S1',
@@ -14,6 +17,7 @@ export const HANDLING = {
     boostRefillRate: 0.15,   // 1 / s (~6.6 s to refill full tank)
     turnRate: 2.25,          // rad/s
     grip: 12.5,              // Lateral adherence
+    airbrakes: 1,            // 1 airbrake charge
     airbrakeTurn: 1.6,       // Additional turn rate with airbrakes
     airbrakeDrag: 45.0,      // m/s2 deceleration under full airbrakes
     hoverHeight: 1.8,        // m above deck
@@ -35,6 +39,7 @@ export const HANDLING = {
     boostRefillRate: 0.14,
     turnRate: 1.95,
     grip: 10.0,
+    airbrakes: 1,            // 1 airbrake charge
     airbrakeTurn: 1.8,
     airbrakeDrag: 50.0,
     hoverHeight: 1.7,
@@ -56,6 +61,7 @@ export const HANDLING = {
     boostRefillRate: 0.16,
     turnRate: 2.1,
     grip: 14.5,
+    airbrakes: 2,            // Anvil holds two charges
     airbrakeTurn: 1.4,
     airbrakeDrag: 40.0,
     hoverHeight: 1.9,

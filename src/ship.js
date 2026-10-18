@@ -544,6 +544,45 @@ export class Ship {
       }
     }
 
+    // 3d. Anvil H1 Orbiting Magnet Balls, Pulse Rings & Shock Diamonds
+    if (this.model && this.model.orbitBalls && this.model.orbitBalls.length > 0) {
+      const orbitSpeedMult = (this.power * 1.5 + (throttle > 0 ? 2.5 : 0.5) + (boost ? 4.0 : 0));
+      for (let i = 0; i < this.model.orbitBalls.length; i++) {
+        const ball = this.model.orbitBalls[i];
+        const u = ball.userData;
+        if (u) {
+          u.baseAngle += u.speed * orbitSpeedMult * dt;
+          ball.position.x = u.centerX + Math.cos(u.baseAngle) * u.radius;
+          ball.position.y = u.centerY + Math.sin(u.baseAngle) * u.radius;
+          ball.position.z = u.centerZ;
+        }
+      }
+    }
+    if (this.model && this.model.pulseRings && this.model.pulseRings.length > 0) {
+      const pulsePhase = Math.sin(Date.now() * 0.015 * (throttle > 0 ? 2.0 : 1.0));
+      const ringScale = 1.0 + (pulsePhase * 0.08 + (boost ? 0.15 : 0.05)) * this.power;
+      for (let i = 0; i < this.model.pulseRings.length; i++) {
+        this.model.pulseRings[i].scale.set(ringScale, ringScale, 1.0);
+      }
+    }
+    if (this.model && this.model.shockDiamonds && this.model.shockDiamonds.length > 0) {
+      const diamondScale = 0.8 + (throttle * 0.4 + (boost ? 0.6 : 0.1)) * this.power;
+      for (let i = 0; i < this.model.shockDiamonds.length; i++) {
+        this.model.shockDiamonds[i].scale.set(diamondScale, diamondScale, diamondScale * 1.4);
+      }
+    }
+
+    // Wet ship drying runoff
+    if (state.underK !== undefined) {
+      if (state.underK > 0.05) {
+        this.shipWet = 1.0;
+        this.shipWetT = 0.0;
+      } else if (this.shipWet > 0.0) {
+        this.shipWetT += dt;
+        this.shipWet = Math.max(0.0, 1.0 - (this.shipWetT / 12.0));
+      }
+    }
+
     // 4. Exhaust Plumes Dynamics
     const plumeScale = this.power * (0.6 + throttle * 0.6 + (boost ? 1.2 : 0));
     for (let i = 0; i < this.plumes.length; i++) {

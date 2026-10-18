@@ -3,6 +3,53 @@
 
 export const CHANGELOG = [
   {
+    version: '1.7.0',
+    title: 'The Anvil H1 & Ship Liveries',
+    date: '2026-10-18',
+    notes: [
+      'New Playable Craft: The Anvil H1 heavy armoured lifting body with nose headlamp band, armoured visor canopy, and dual pulse engine housings',
+      'Engine Magnetics: 4 concentric pulse rings scaling with throttle, 6 internal exhaust shock diamonds, and 6 counter-rotating magnetic containment spheres orbiting nozzle bells',
+      'Anti-Dip Corner Safety: geometric roll-angle clamping during high-steer banking prevents hull tail corners and wingtips from clipping the road deck',
+      'Multi-Ship Livery Registry: 3 curated paint schemes per ship across Feather S1, Comet R1, and Anvil H1 with procedural palettes and BAKE cache tag (?b=2)',
+      '3D Showroom Livery Selector: cycle ship paints with Left/Right arrow keys or color chips with real-time ship stand updates and persistence'
+    ]
+  },
+  {
+    version: '1.6.0',
+    title: 'Airbrake Charge Dynamics',
+    date: '2026-10-18',
+    notes: [
+      'Airbrake Charge Finite-State Machine: one-shot discrete airbrake bursts held up to 1.0s with 3.0s recharge time',
+      'Class-Differentiated Charges: Feather S1 and Comet R1 carry 1 charge; heavy Anvil H1 carries 2 charges',
+      'Dedicated HUD Airbrake Meter: glowing cyan-green charge and recharge status bar on the race instrument cluster',
+      'Refined Control Bindings: dedicated airbrake triggers on ArrowLeft/ArrowRight and Z/X/Q/E, steering on A/D and gamepad sticks'
+    ]
+  },
+  {
+    version: '1.5.0',
+    title: 'Living Ocean & Colossal Fauna',
+    date: '2026-10-18',
+    notes: [
+      'Seabed Abyssal Environment: basalt pinnacles (60-200m off), swaying giant kelp beds, volcanic hydrothermal bubble vents, multi-species fish shoals (sardines, tuna, red snappers), deep lanternfish, and scuttling road crabs',
+      'Ocean Marine Life: schools of leaping dolphins jumping over swells, ~60m colossal leviathan breaching over causeway and gliding above Atlantis avenue, drifting luminous jellyfish, and wheeling storm petrels',
+      'The Kraken Colossus: giant cephalopod perched on grid sea stack with amber slit eyes, breathing mantle, writhing arms wrapping rock, lashing tentacles, and ship tracking',
+      'Alien Fluted Pillars Ring: perimeter ring of colossal columns (650m to >1500m tall) with twisting flutes, flared root buttresses, structural collars, and upward-pulsing cyan energy veins',
+      'Storm Rain System: speed-elongated rain streaks catching moonlight, world-fixed deck splashes, reflective road puddles, and automatic underwater rain shutoff'
+    ]
+  },
+  {
+    version: '1.4.1',
+    title: 'Ocean World Polish',
+    date: '2026-10-18',
+    notes: [
+      'Low causeway raised to y = 8.5m clear of Gerstner swells',
+      'Ocean surge barrel roll apex raised to y = 48m',
+      'Focused directional moon glade specular column in sea shader',
+      'Waterline road dive foam along wave crests and submerged transitions',
+      'Wet ship optical drying model: procedural water runoff drying over 12 seconds following surface breach'
+    ]
+  },
+  {
     version: '1.4.0',
     title: 'The Drowned World',
     date: '2026-10-18',

@@ -28,6 +28,7 @@ export class HUDController {
     this.elSpdbar = hasDoc ? document.getElementById('spdbar') : null;
     this.elBstFill = hasDoc ? document.querySelector('#bst .bar-fill') : null;
     this.elThrFill = hasDoc ? document.querySelector('#thr .bar-fill') : null;
+    this.elAirbrakeFill = hasDoc ? document.getElementById('airbrake-fill') : null;
     this.elBstOverflow = hasDoc ? document.getElementById('bst-overflow') : null;
     this.elDriftChain = hasDoc ? document.getElementById('drift-chain') : null;
     this.elState = hasDoc ? document.getElementById('state') : null;
@@ -181,6 +182,13 @@ export class HUDController {
     }
     if (this.elThrFill) {
       this.elThrFill.style.width = `${Math.round((input.throttle || 0) * 100)}%`;
+    }
+    if (this.elAirbrakeFill) {
+      const maxChg = playerRacer.maxAirbrakes || 1;
+      const curChg = playerRacer.airbrakeCharges !== undefined ? playerRacer.airbrakeCharges : maxChg;
+      const rechgFrac = curChg < maxChg ? (playerRacer.airbrakeRechargeTimer || 0) / 3.0 : 0;
+      const totalRatio = Math.min(1.0, (curChg + rechgFrac) / maxChg);
+      this.elAirbrakeFill.style.width = `${Math.round(totalRatio * 100)}%`;
     }
 
     // Drift Chain indicator (dormant when drift inactive)

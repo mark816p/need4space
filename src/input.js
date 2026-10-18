@@ -114,8 +114,8 @@ export class InputHandler {
     if (this.touch.brake) brake = Math.max(brake, 1.0);
 
     let steer = 0;
-    if (k.has('KeyD') || k.has('ArrowRight')) steer += 1.0;
-    if (k.has('KeyA') || k.has('ArrowLeft')) steer -= 1.0;
+    if (k.has('KeyD')) steer += 1.0;
+    if (k.has('KeyA')) steer -= 1.0;
     if (this.touch.steerRight) steer += 1.0;
     if (this.touch.steerLeft) steer -= 1.0;
     steer = Math.max(-1.0, Math.min(1.0, steer));
@@ -125,8 +125,9 @@ export class InputHandler {
     if (k.has('KeyK')) pitch -= 1.0;
 
     let boost = k.has('ShiftLeft') || k.has('ShiftRight') || this.touch.boost;
-    const airbrakeL = k.has('KeyQ');
-    const airbrakeR = k.has('KeyE');
+    // Airbrakes are on ←/→ (Z/X still work) from v1.5.9; steering is A/D/mouse/stick
+    const airbrakeL = k.has('ArrowLeft') || k.has('KeyZ') || k.has('KeyQ');
+    const airbrakeR = k.has('ArrowRight') || k.has('KeyX') || k.has('KeyE');
     const slam = k.has('Space');
 
     // Gamepad polling if connected

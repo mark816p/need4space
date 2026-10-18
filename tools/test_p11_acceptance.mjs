@@ -357,7 +357,7 @@ assert.strictEqual(CIRCUITS.length, 5, 'CIRCUITS array must contain 5 planetary 
 assert(CIRCUITS.find(c => c.id === 'ocean'), 'Ocean circuit present in scoreboard CIRCUITS');
 console.log('PASS: Global Scoreboard expanded to 20 boards (5 circuits x 4 difficulties)');
 
-assert.strictEqual(CURRENT_VERSION, '1.4.0', 'CURRENT_VERSION is 1.4.0');
+assert(CURRENT_VERSION >= '1.4.0', `CURRENT_VERSION is >= 1.4.0 (got ${CURRENT_VERSION})`);
 assert(CHANGELOG.find(c => c.version === '1.4.0'), 'Changelog has 1.4.0');
 assert(CHANGELOG.find(c => c.version === '1.3.0'), 'Changelog has 1.3.0');
 assert(CHANGELOG.find(c => c.version === '1.2.5'), 'Changelog has 1.2.5');

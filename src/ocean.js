@@ -29,11 +29,11 @@ export function createOceanTrack() {
     // 1. Causeway low over the swell (Points 0 to 6: s ≈ 0 to 2400m)
     if (i === 0) {
       name = 'Night Causeway Start / Finish Grid';
-      y = 6.5;
+      y = 8.5;
       bank = 0;
     } else if (i >= 1 && i <= 5) {
       name = 'Low Causeway Over Gerstner Swell';
-      y = 5.8 + Math.sin(i * 1.2) * 1.5;
+      y = 8.5 + Math.sin(i * 1.2) * 1.5;
       bank = (i % 2 === 0 ? 6 : -6);
     }
     // 2. Sea stacks and rock arches (Points 6 to 11: s ≈ 2400 to 4400m)
@@ -103,9 +103,9 @@ export function createOceanTrack() {
     }
     // 7. Ocean Surface Surge & Wave Barrel Roll (Points 32 to 35: s ≈ 12600 to 14200m)
     else if (i >= 32 && i <= 34) {
-      name = 'Ocean Surface Surge & Water Breach';
+      name = 'Ocean Surface Surge & Wave Barrel Roll';
       const climbT = (i - 32) / 2.0;
-      y = THREE.MathUtils.lerp(-220.0, 16.0, climbT); // Breaches surface (y = 0) with water spray
+      y = (i === 33) ? 48.0 : THREE.MathUtils.lerp(-220.0, 16.0, climbT); // Barrel roll apex raised to 48m
       bank = (i === 33 ? 45 : 15); // Barrel roll over waves
     }
     // 8. High loop return to Causeway (Points 35 to 37: s ≈ 14200 to 15200m)

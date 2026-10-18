@@ -8,6 +8,7 @@ import { TrackRacer } from './track.js';
 import { Ship } from './ship.js';
 import { buildFeatherS1, buildCometR1, buildAnvilH1, createShipMaterials } from './shipmodels.js';
 import { PERKS } from './ships.js';
+import { applyShipLivery } from './liveries.js';
 
 // 9 Racing Teams (colors, liveries, engine colors)
 export const TEAMS = [
@@ -264,6 +265,10 @@ export class Race {
       }
 
       const ship = new Ship(shipModel, { isRival: !isPlayer });
+      if (isPlayer) {
+        const liveryIdx = this.options.settings ? (this.options.settings.get('selectedLivery') ?? 0) : 0;
+        applyShipLivery(ship, liveryIdx);
+      }
 
       const racer = new TrackRacer(this.track, ship, {
         isPlayer,

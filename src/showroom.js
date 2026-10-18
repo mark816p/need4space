@@ -7,6 +7,7 @@ import { buildFeatherS1, buildCometR1, buildAnvilH1, createShipMaterials } from 
 import { Ship } from './ship.js';
 import { HANDLING } from './ships.js';
 import { damp, clamp } from './noise.js';
+import { SHIP_LIVERIES, getLivery, applyShipLivery, BAKE } from './liveries.js';
 
 export const SHOWROOM_SHIPS = [
   {
@@ -35,21 +36,12 @@ export const SHOWROOM_SHIPS = [
   }
 ];
 
-export const LIVERY_COLORS = [
-  { name: 'RACING RED', hex: 0xe62233, css: '#e62233' },
-  { name: 'SOLAR AMBER', hex: 0xffaa00, css: '#ffaa00' },
-  { name: 'CYAN PULSE', hex: 0x00d2ff, css: '#00d2ff' },
-  { name: 'VORTEX EMERALD', hex: 0x00ff88, css: '#00ff88' },
-  { name: 'NEXUS VIOLET', hex: 0x8833ee, css: '#8833ee' },
-  { name: 'ZENITH WHITE', hex: 0xf0f2f5, css: '#f0f2f5' }
-];
-
 export class Showroom {
   constructor(app = null) {
     this.app = app;
     this.isOpen = false;
     this.currentShipIdx = 0;
-    this.currentLiveryHex = 0xe62233;
+    this.currentLiveryIdx = 0;
 
     // Camera orbit parameters
     this.orbitRadius = 14.5;
@@ -70,6 +62,11 @@ export class Showroom {
     this.shipGroup = new THREE.Group();
     this.shipGroup.name = 'showroom_ship_holder';
     this.scene.add(this.shipGroup);
+
+    this._onKeyDown = this._onKeyDown.bind(this);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('keydown', this._onKeyDown);
+    }
 
     this._initStudio();
     this._initDom();
@@ -169,8 +166,9 @@ export class Showroom {
 
         <!-- Center: Livery Palette Switcher -->
         <div style="background: rgba(13, 20, 32, 0.88); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; padding: 12px 18px; pointer-events: auto; backdrop-filter: blur(8px); display: flex; flex-direction: column; align-items: center; gap: 8px;">
-          <div style="font-size: 11px; letter-spacing: 2px; color: #8fa3b8; font-weight: 700;">HULL LIVERY PALETTE</div>
-          <div id="sr-livery-row" style="display: flex; gap: 8px;"></div>
+          <div style="font-size: 11px; letter-spacing: 2px; color: #8fa3b8; font-weight: 700;">HULL LIVERY PALETTE (← / →)</div>
+          <div id="sr-livery-name" style="font-size: 13px; color: #00d2ff; font-weight: 700; letter-spacing: 1px;">PHOENIX RACING</div>
+          <div id="sr-livery-row" style="display: flex; gap: 10px;"></div>
         </div>
 
         <!-- Right: Technical Specification Telemetry -->
@@ -237,25 +235,6 @@ export class Showroom {
     this.container.querySelector('#sr-btn-next')?.addEventListener('click', () => this.nextShip());
     this.container.querySelector('#sr-btn-select')?.addEventListener('click', () => this.selectShip());
 
-    // Livery swatches
-    const liveryRow = this.container.querySelector('#sr-livery-row');
-    if (liveryRow) {
-      liveryRow.innerHTML = '';
-      for (const col of LIVERY_COLORS) {
-        const swatch = document.createElement('button');
-        swatch.style.cssText = `
-          width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff;
-          background: ${col.css}; cursor: pointer; transition: transform 0.15s;
-        `;
-        swatch.title = col.name;
-        swatch.addEventListener('click', () => {
-          this.currentLiveryHex = col.hex;
-          this._rebuildShip();
-        });
-        liveryRow.appendChild(swatch);
-      }
-    }
-
     // Pointer Drag Rotation & Zoom on Canvas
     if (this.canvas) {
       this.canvas.addEventListener('pointerdown', (e) => {
@@ -292,14 +271,33 @@ export class Showroom {
     }
   }
 
+  _onKeyDown(e) {
+    if (!this.isOpen) return;
+    if (e.code === 'ArrowLeft') {
+      e.preventDefault();
+      this.prevLivery();
+    } else if (e.code === 'ArrowRight') {
+      e.preventDefault();
+      this.nextLivery();
+    } else if (e.code === 'KeyA') {
+      e.preventDefault();
+      this.prevShip();
+    } else if (e.code === 'KeyD') {
+      e.preventDefault();
+      this.nextShip();
+    } else if (e.code === 'Escape') {
+      this.close();
+    }
+  }
+
   _rebuildShip() {
     while (this.shipGroup.children.length > 0) {
       this.shipGroup.remove(this.shipGroup.children[0]);
     }
 
     const shipDef = SHOWROOM_SHIPS[this.currentShipIdx];
-    const liveryHex = this.currentLiveryHex || shipDef.defaultColor;
-    const mats = createShipMaterials(liveryHex, 0x1f242d);
+    const livery = getLivery(shipDef.kind, this.currentLiveryIdx);
+    const mats = createShipMaterials(livery.primary, livery.secondary);
 
     let model;
     if (shipDef.kind === 'rocket') {
@@ -311,6 +309,7 @@ export class Showroom {
     }
 
     this.shipInstance = new Ship(model, { isRival: false });
+    applyShipLivery(this.shipInstance, this.currentLiveryIdx);
     this.shipInstance.root.position.set(0, 0.65, 0);
     this.shipGroup.add(this.shipInstance.root);
 
@@ -320,7 +319,67 @@ export class Showroom {
     this.shipInstance.power = 0.0;
     this.shipInstance.setEngine(true);
 
+    this._updateLiveryUi();
     this._updateStatsUi();
+  }
+
+  _updateLiveryUi() {
+    if (!this.container) return;
+    const shipDef = SHOWROOM_SHIPS[this.currentShipIdx];
+    const liveries = SHIP_LIVERIES[shipDef.kind] || [];
+    const liveryRow = this.container.querySelector('#sr-livery-row');
+    const elLiveryName = this.container.querySelector('#sr-livery-name');
+    const activeLivery = liveries[this.currentLiveryIdx] || liveries[0];
+
+    if (elLiveryName && activeLivery) {
+      elLiveryName.textContent = activeLivery.name;
+    }
+
+    if (liveryRow) {
+      liveryRow.innerHTML = '';
+      liveries.forEach((liv, idx) => {
+        const swatch = document.createElement('button');
+        const isActive = (idx === this.currentLiveryIdx);
+        const secColor = '#' + (liv.secondary ?? 0x1f242d).toString(16).padStart(6, '0');
+        swatch.style.cssText = `
+          width: 32px; height: 32px; border-radius: 50%;
+          border: 2px solid ${isActive ? '#00d2ff' : 'rgba(255, 255, 255, 0.3)'};
+          background: linear-gradient(135deg, ${liv.css} 50%, ${secColor} 50%);
+          cursor: pointer; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+          box-shadow: ${isActive ? '0 0 10px #00d2ff' : 'none'};
+          transform: ${isActive ? 'scale(1.15)' : 'scale(1)'};
+        `;
+        swatch.title = `${liv.name}: ${liv.desc || ''}`;
+        swatch.addEventListener('click', () => {
+          this.currentLiveryIdx = idx;
+          this._updateLivery();
+        });
+        liveryRow.appendChild(swatch);
+      });
+    }
+  }
+
+  _updateLivery() {
+    if (this.shipInstance) {
+      applyShipLivery(this.shipInstance, this.currentLiveryIdx);
+    }
+    this._updateLiveryUi();
+  }
+
+  prevLivery() {
+    const shipDef = SHOWROOM_SHIPS[this.currentShipIdx];
+    const liveries = SHIP_LIVERIES[shipDef.kind] || [];
+    if (liveries.length === 0) return;
+    this.currentLiveryIdx = (this.currentLiveryIdx - 1 + liveries.length) % liveries.length;
+    this._updateLivery();
+  }
+
+  nextLivery() {
+    const shipDef = SHOWROOM_SHIPS[this.currentShipIdx];
+    const liveries = SHIP_LIVERIES[shipDef.kind] || [];
+    if (liveries.length === 0) return;
+    this.currentLiveryIdx = (this.currentLiveryIdx + 1) % liveries.length;
+    this._updateLivery();
   }
 
   _updateStatsUi() {
@@ -380,13 +439,13 @@ export class Showroom {
 
   prevShip() {
     this.currentShipIdx = (this.currentShipIdx - 1 + SHOWROOM_SHIPS.length) % SHOWROOM_SHIPS.length;
-    this.currentLiveryHex = SHOWROOM_SHIPS[this.currentShipIdx].defaultColor;
+    this.currentLiveryIdx = 0;
     this._rebuildShip();
   }
 
   nextShip() {
     this.currentShipIdx = (this.currentShipIdx + 1) % SHOWROOM_SHIPS.length;
-    this.currentLiveryHex = SHOWROOM_SHIPS[this.currentShipIdx].defaultColor;
+    this.currentLiveryIdx = 0;
     this._rebuildShip();
   }
 
@@ -394,6 +453,7 @@ export class Showroom {
     const shipKind = kind || SHOWROOM_SHIPS[this.currentShipIdx].kind;
     if (this.app?.settings) {
       this.app.settings.set('selectedShip', shipKind);
+      this.app.settings.set('selectedLivery', this.currentLiveryIdx);
       this.app.settings.save();
     }
     this._updateStatsUi();
@@ -408,7 +468,7 @@ export class Showroom {
     const activeKind = this.app?.settings?.get('selectedShip') || 'feather';
     const foundIdx = SHOWROOM_SHIPS.findIndex(s => s.kind === activeKind);
     if (foundIdx >= 0) this.currentShipIdx = foundIdx;
-    this.currentLiveryHex = SHOWROOM_SHIPS[this.currentShipIdx].defaultColor;
+    this.currentLiveryIdx = this.app?.settings?.get('selectedLivery') || 0;
 
     this._rebuildShip();
 

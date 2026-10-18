@@ -166,14 +166,18 @@ export function createSeaMaterial(moonDir) {
       vec3 shallowWater = vec3(0.02, 0.08, 0.14);
       vec3 waterColor = mix(deepWater, shallowWater, vCrest);
 
-      // Moon glade specular glitter
+      // Focused moon glade specular column (focused along moon azimuth)
       float NdotH = max(0.0, dot(N, H));
-      float spec = pow(NdotH, 140.0) * 4.5 + pow(NdotH, 24.0) * 0.6;
-      vec3 moonGlade = vec3(0.85, 0.92, 1.0) * spec;
+      vec2 dirToCam = normalize(cameraPosition.xz - vWorldPos.xz);
+      float alignMoon = max(0.0, dot(dirToCam, -uMoonDir.xz));
+      float gladeColumn = pow(alignMoon, 12.0);
+      float spec = (pow(NdotH, 180.0) * 6.5 + pow(NdotH, 28.0) * 1.2) * (0.25 + 0.75 * gladeColumn);
+      vec3 moonGlade = vec3(0.85, 0.94, 1.0) * spec;
 
-      // Foam on breaking wave crests
-      vec3 foamColor = vec3(0.82, 0.90, 0.96);
-      float foamFrac = smoothstep(0.4, 0.95, vCrest);
+      // Foam on breaking wave crests and waterline road dive surface
+      vec3 foamColor = vec3(0.85, 0.92, 0.98);
+      float waterlineFoam = smoothstep(3.5, 0.0, abs(vWorldPos.y)) * 0.45;
+      float foamFrac = max(smoothstep(0.4, 0.95, vCrest), waterlineFoam);
 
       // Bioluminescent plankton (cyan-green sparkles in churning water)
       vec2 sparkUv = floor(vWorldPos.xz * 2.2 + uTime * 0.5);

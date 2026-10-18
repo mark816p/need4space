@@ -374,6 +374,10 @@ body[data-ui="menu"] .hp {
   background: linear-gradient(90deg, #0088ff, #00d2ff);
   box-shadow: 0 0 8px #00d2ff;
 }
+#airbrake .bar-fill {
+  background: linear-gradient(90deg, #00d2ff, #00ff88);
+  box-shadow: 0 0 8px #00ff88;
+}
 
 /* Minimap */
 #mapwrap {

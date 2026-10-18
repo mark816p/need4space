@@ -267,7 +267,8 @@ export function buildFeatherS1(mats = null) {
     nozzles,
     engineGlowMat: mats.engineGlow,
     engineColorHex: 0x00d2ff,
-    tris: 320
+    tris: 320,
+    mats
   };
 }
 
@@ -469,15 +470,16 @@ export function buildCometR1(mats = null) {
     engineColorHex: 0xffaa00,
     plumes: [plume],
     nozzles: [new THREE.Vector3(0, 0.18, 7.2)],
-    tris: 420
+    tris: 420,
+    mats
   };
 }
 
 // =============================================================================
-// ANVIL H1 (Heavy Armoured Lifting Body with Dual Pulse Rings)
+// ANVIL H1 (Heavy Armoured Lifting Body with Dual Pulse Rings & Orbiting Balls)
 // =============================================================================
 export function buildAnvilH1(mats = null) {
-  if (!mats) mats = createShipMaterials(0x8844ff, 0x22262e);
+  if (!mats) mats = createShipMaterials(0x9933ff, 0x1f242d);
   const visual = new THREE.Group();
   visual.name = 'anvil_h1_visual';
 
@@ -485,38 +487,176 @@ export function buildAnvilH1(mats = null) {
   const length = 12.8;
   const bottom = -0.65;
 
-  const hullGeom = new THREE.BoxGeometry(8.5, 1.8, 11.0);
-  const hullMesh = new THREE.Mesh(hullGeom, mats.body);
-  hullMesh.castShadow = true;
-  visual.add(hullMesh);
+  // 1. Heavy Armoured Lifting Body Hull
+  // Broad faceted armour plates with bevelled chines and thick sponsons
+  const mainHullGeom = new THREE.BoxGeometry(7.2, 1.45, 10.5);
+  const mainHull = new THREE.Mesh(mainHullGeom, mats.body);
+  mainHull.name = 'anvil_main_hull';
+  mainHull.position.set(0, 0.15, -0.4);
+  visual.add(mainHull);
 
-  // Pulse rings
-  const ringGeom = new THREE.TorusGeometry(1.2, 0.2, 8, 16);
-  const rLeft = new THREE.Mesh(ringGeom, mats.engineGlow);
-  rLeft.position.set(-3.2, 0, 5.5);
-  visual.add(rLeft);
+  // Side Armoured Sponsons / Chines (out to ±6.4m)
+  const sponsonGeom = new THREE.BoxGeometry(2.4, 0.9, 8.2);
+  const spL = new THREE.Mesh(sponsonGeom, mats.wing);
+  spL.name = 'anvil_sponson_left';
+  spL.position.set(-4.8, 0.05, 0.2);
+  visual.add(spL);
 
-  const rRight = new THREE.Mesh(ringGeom, mats.engineGlow);
-  rRight.position.set(3.2, 0, 5.5);
-  visual.add(rRight);
+  const spR = new THREE.Mesh(sponsonGeom, mats.wing);
+  spR.name = 'anvil_sponson_right';
+  spR.position.set(4.8, 0.05, 0.2);
+  visual.add(spR);
 
+  // Dorsal Armour Ridge
+  const dorsalRidgeGeom = new THREE.BoxGeometry(3.6, 0.6, 6.5);
+  const dorsalRidge = new THREE.Mesh(dorsalRidgeGeom, mats.dark);
+  dorsalRidge.name = 'anvil_dorsal_ridge';
+  dorsalRidge.position.set(0, 0.95, 0.4);
+  visual.add(dorsalRidge);
+
+  // 2. Headlamp Band Across the Nose (headLampPos)
+  const headlampGeom = new THREE.BoxGeometry(6.4, 0.22, 0.35);
+  const headlampMat = new THREE.MeshBasicMaterial({
+    color: 0xffea88,
+    toneMapped: false
+  });
+  const headlampBand = new THREE.Mesh(headlampGeom, headlampMat);
+  headlampBand.name = 'headlamp_band';
+  headlampBand.position.set(0, 0.12, -5.68);
+  visual.add(headlampBand);
+
+  // 3. Cockpit Under Armoured Visor Canopy
   const canopyPivot = new THREE.Group();
-  canopyPivot.position.set(0, 0.9, 0);
+  canopyPivot.name = 'anvil_canopy_pivot';
+  canopyPivot.position.set(0, 0.85, -2.2);
 
-  const plumeGeom = new THREE.ConeGeometry(1.0, 5.0, 12, 1, true);
-  plumeGeom.rotateX(-Math.PI * 0.5);
-  plumeGeom.translate(0, 0, 2.5);
-  const plumeMat = new THREE.MeshBasicMaterial({
-    color: 0x9933ff,
+  const visorGeom = new THREE.BoxGeometry(2.6, 0.55, 3.2);
+  const visor = new THREE.Mesh(visorGeom, mats.canopy);
+  visor.name = 'anvil_cockpit_glass';
+  visor.position.set(0, 0.25, 0);
+  canopyPivot.add(visor);
+  visual.add(canopyPivot);
+
+  // 4. Dual Heavy Pulse Engine Housings (x = ±3.1, z = 5.2)
+  const engineHousingGeom = new THREE.CylinderGeometry(1.65, 1.85, 4.4, 12);
+  engineHousingGeom.rotateX(Math.PI * 0.5);
+
+  const ehL = new THREE.Mesh(engineHousingGeom, mats.dark);
+  ehL.name = 'anvil_engine_housing_left';
+  ehL.position.set(-3.1, 0.12, 3.4);
+  visual.add(ehL);
+
+  const ehR = new THREE.Mesh(engineHousingGeom, mats.dark);
+  ehR.name = 'anvil_engine_housing_right';
+  ehR.position.set(3.1, 0.12, 3.4);
+  visual.add(ehR);
+
+  // 5. Dual Pulse Rings (pulse rings that expand and pulse on throttle)
+  const ringGeom = new THREE.TorusGeometry(1.42, 0.18, 8, 20);
+  const pulseRings = [];
+
+  const rL1 = new THREE.Mesh(ringGeom, mats.engineGlow);
+  rL1.name = 'pulse_ring_l1';
+  rL1.position.set(-3.1, 0.12, 5.5);
+  visual.add(rL1);
+  pulseRings.push(rL1);
+
+  const rL2 = new THREE.Mesh(new THREE.TorusGeometry(1.22, 0.14, 8, 20), mats.engineGlow);
+  rL2.name = 'pulse_ring_l2';
+  rL2.position.set(-3.1, 0.12, 5.9);
+  visual.add(rL2);
+  pulseRings.push(rL2);
+
+  const rR1 = new THREE.Mesh(ringGeom, mats.engineGlow);
+  rR1.name = 'pulse_ring_r1';
+  rR1.position.set(3.1, 0.12, 5.5);
+  visual.add(rR1);
+  pulseRings.push(rR1);
+
+  const rR2 = new THREE.Mesh(new THREE.TorusGeometry(1.22, 0.14, 8, 20), mats.engineGlow);
+  rR2.name = 'pulse_ring_r2';
+  rR2.position.set(3.1, 0.12, 5.9);
+  visual.add(rR2);
+  pulseRings.push(rR2);
+
+  // 6. Shock Diamonds inside Exhaust Bells
+  const shockDiamondMat = new THREE.MeshBasicMaterial({
+    color: 0xcc66ff,
     transparent: true,
-    opacity: 0.9,
+    opacity: 0.85,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const diamondGeom = new THREE.OctahedronGeometry(0.55, 0);
+  diamondGeom.scale(0.8, 0.8, 1.8);
+
+  const shockDiamonds = [];
+  for (let side = -1; side <= 1; side += 2) {
+    for (let d = 0; d < 3; d++) {
+      const diam = new THREE.Mesh(diamondGeom, shockDiamondMat);
+      diam.name = `shock_diamond_${side < 0 ? 'l' : 'r'}_${d}`;
+      diam.position.set(side * 3.1, 0.12, 6.3 + d * 1.3);
+      visual.add(diam);
+      shockDiamonds.push(diam);
+    }
+  }
+
+  // 7. Magnet Balls Orbiting Engine Bells (orbit/ball)
+  // 3 magnetic containment spheres orbiting each pulse nozzle in a circular ring
+  const magnetBallMat = new THREE.MeshStandardMaterial({
+    color: 0x111622,
+    metalness: 0.95,
+    roughness: 0.15,
+    emissive: 0x8822ff,
+    emissiveIntensity: 0.6
+  });
+  const ballGeom = new THREE.SphereGeometry(0.24, 12, 12);
+  const orbitBalls = [];
+
+  for (let side = -1; side <= 1; side += 2) {
+    const ballsSide = [];
+    const orbitCenterX = side * 3.1;
+    const orbitCenterY = 0.12;
+    const orbitCenterZ = 5.65;
+    const orbitR = 1.85;
+
+    for (let b = 0; b < 3; b++) {
+      const ballMesh = new THREE.Mesh(ballGeom, magnetBallMat);
+      ballMesh.name = `orbit_ball_${side < 0 ? 'l' : 'r'}_${b}`;
+      ballMesh.userData = {
+        centerX: orbitCenterX,
+        centerY: orbitCenterY,
+        centerZ: orbitCenterZ,
+        radius: orbitR,
+        baseAngle: (b * Math.PI * 2.0) / 3.0,
+        speed: (side < 0 ? 3.8 : -3.8) // Counter-rotating magnetic fields
+      };
+      ballMesh.position.set(
+        orbitCenterX + Math.cos(ballMesh.userData.baseAngle) * orbitR,
+        orbitCenterY + Math.sin(ballMesh.userData.baseAngle) * orbitR,
+        orbitCenterZ
+      );
+      visual.add(ballMesh);
+      ballsSide.push(ballMesh);
+      orbitBalls.push(ballMesh);
+    }
+  }
+
+  // 8. Dual Pulse Plumes
+  const plumeGeom = new THREE.ConeGeometry(1.25, 6.5, 16, 1, true);
+  plumeGeom.rotateX(-Math.PI * 0.5);
+  plumeGeom.translate(0, 0, 3.25);
+  const plumeMat = new THREE.MeshBasicMaterial({
+    color: 0xaa44ff,
+    transparent: true,
+    opacity: 0.88,
     blending: THREE.AdditiveBlending,
     depthWrite: false
   });
   const pl1 = new THREE.Mesh(plumeGeom, plumeMat);
-  pl1.position.set(-3.2, 0, 5.5);
+  pl1.position.set(-3.1, 0.12, 5.7);
   const pl2 = new THREE.Mesh(plumeGeom, plumeMat);
-  pl2.position.set(3.2, 0, 5.5);
+  pl2.position.set(3.1, 0.12, 5.7);
   visual.add(pl1);
   visual.add(pl2);
 
@@ -527,10 +667,17 @@ export function buildAnvilH1(mats = null) {
     length,
     bottom,
     canopy: canopyPivot,
-    rotors: [rLeft, rRight],
+    rotors: pulseRings,
+    pulseRings,
+    shockDiamonds,
+    orbitBalls,
+    headlampBand,
     plumes: [pl1, pl2],
-    nozzles: [new THREE.Vector3(-3.2, 0, 5.5), new THREE.Vector3(3.2, 0, 5.5)],
-    tris: 310
+    nozzles: [new THREE.Vector3(-3.1, 0.12, 5.7), new THREE.Vector3(3.1, 0.12, 5.7)],
+    engineGlowMat: mats.engineGlow,
+    engineColorHex: 0x9933ff,
+    tris: 480,
+    mats
   };
 }
 
