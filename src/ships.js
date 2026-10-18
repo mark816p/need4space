@@ -73,7 +73,7 @@ export const PERKS = {
   easy: {
     gripMul: 1.25,
     topSpeedMul: 1.05,
-    wallScrapeDamp: 0.5,
+    wallScrapeDamp: 0.2, // wall knocks a fifth as costly
     boostRefillMul: 1.4,
     autoSteerAssist: 0.25
   },

@@ -31,7 +31,7 @@ export function createIceTrack() {
       bank = 0;
     } else if (i >= 7 && i <= 9) {
       name = 'The Crystal Garden';
-      bank = -22;
+      bank = 22; // Sweepers banked into turns not away
       y += 15.0;
     } else if (i === 11) {
       name = 'Wind-Carved Great Arch';
@@ -50,14 +50,20 @@ export function createIceTrack() {
       // Dive into ~270m thick glacier shelf
       y -= 32.0;
       bank = 0;
+    } else if (i === 21) {
+      name = 'Crevasse Floor Long Sweeper';
+      // Long sweep at dive's foot
+      y -= 24.0;
+      bank = 16;
     } else if (i >= 22 && i <= 24) {
       name = 'Crevasse Canyon Slot (Gentle S-Bend)';
-      // Smooth, easier bend after the dive through the ice shelf
-      bank = (i % 2 === 0 ? 12 : -12);
+      // Gentler S down the crevasse
+      bank = (i % 2 === 0 ? 8 : -8);
       y -= 10.0;
     } else if (i === 26) {
-      name = 'Second Rift Launch';
-      y += 24.0;
+      name = 'Second Rift Launch (Smoother Climb)';
+      // Smoother climb to second rift jump
+      y += 18.0;
       bank = 0;
     } else if (i === 27) {
       name = 'Sea Floes Gravity Flip Incline';
@@ -72,10 +78,15 @@ export function createIceTrack() {
       name = 'Second Gravity Flip Recovery';
       y += 10.0;
       bank = 0;
-    } else if (i >= 32 && i <= 34) {
+    } else if (i === 32) {
+      name = 'Post-Flip 130m Straight';
+      // 130 m straight after flips before the S home
+      y += 4.0;
+      bank = 0;
+    } else if (i >= 33 && i <= 34) {
       name = 'Aurora Basin High-Speed Curve';
-      bank = 26;
-      y += 5.0;
+      bank = 24;
+      y += 2.0;
     } else if (i === 35) {
       name = 'Final Glacial Straight';
       bank = 0;
@@ -110,11 +121,18 @@ export function createIceTrack() {
     tunnels: [
       [5100, 6300], // Glacier Bore Cave
     ],
-    // High-speed boost pads placed strategically on straights and before jumps
+    // High-speed boost pads placed strategically on straights and before jumps (pad moved out)
+    pads: [
+      { s: 1850, x: 0, kind: 'boost' },
+      { s: 4800, x: -12, kind: 'boost' }, // pad moved out off the inside apex
+      { s: 7200, x: 8, kind: 'boost' },
+      { s: 9550, x: 0, kind: 'boost' },
+      { s: 12100, x: 0, kind: 'boost' }
+    ],
     boostPads: [
       { s: 1850, lateral: 0, duration: 2.2 },
-      { s: 4800, lateral: -6, duration: 2.2 },
-      { s: 7200, lateral: 6, duration: 2.2 },
+      { s: 4800, lateral: -12, duration: 2.2 },
+      { s: 7200, lateral: 8, duration: 2.2 },
       { s: 9550, lateral: 0, duration: 2.2 },
       { s: 12100, lateral: 0, duration: 2.2 }
     ],

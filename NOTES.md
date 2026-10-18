@@ -19,7 +19,7 @@
 - [x] P5 — Drift, Gravity Flips, Air Pitch (TrackRacer.drifting=false, gravity flips with 180 turnover and flipFields, airPitch=14 m/s2, camera rollFollow=1)
 - [x] P6 — Ice Shelf Crevasse & Desert Planet (shelf.js, ice 14km lap with crevasse & dual gravity flips, desert.js, deserttrack.js, dunes.js, sandstone.js, ruins.js, haze.js, simoom.js, 14.3km desert circuit, sandstorm closed-form optical depth)
 - [x] P7 — Forest Cave & Derelict Colossus (cave.js, 2km hollow hill swept tube, underground lake, slalom columns, skull flips, 26.6km space circuit, 12km Colossus, upside-down hold, rack towers, barbette turrets, graveyards, HUD drift/boost overflow)
-- [ ] P8 — Playtest Tuning, License, v1.1 "Four Worlds"
+- [x] P8 — Playtest Tuning, License, v1.1 "Four Worlds" (difficulty tiers & player perks, Four Worlds AI median lap-time ordering, track geometry polish across all 4 circuits, v1.1 What's New modal, interactive menu hints, license & copyright)
 - [ ] P9 — Global Scoreboard & Perf Campaign
 - [ ] P10 — v1.2 Global Scoreboard & Graphics Presets
 - [ ] P11 — v1.2.5 The Broken Giant, Comet R1, Showroom, Ocean Planet

@@ -58,6 +58,7 @@ export function createForestTrack() {
       y += 115.0;
       bank = 0;
     } else if (i === 17) {
+      name = 'Hollow Hill Exit Straight';
       y += 85.0;
       bank = 0;
     } else if (i >= 18 && i <= 20) {
@@ -68,11 +69,16 @@ export function createForestTrack() {
       name = 'Verdant Loop Zenith (Inverted)';
       y += 140.0;
       bank = 0;
+    } else if (i === 22) {
+      name = 'Post-Loop Long Sweeper';
+      // Long sweep out of the loop
+      bank = 24;
+      y += 30.0;
     } else if (i >= 23 && i <= 25) {
-      // Continuous roll through the mountain cut
-      name = 'Jungle Ridge Corkscrew';
-      const rollFrac = (i - 23) / 2.0;
-      bank = rollFrac * 360.0;
+      // Smoother banked helix through the jungle ridge
+      name = 'Jungle Ridge Banked Helix';
+      bank = 26;
+      y += 10.0;
     } else if (i === 26) {
       name = 'Pre-Skull Gravity Flip 1 Approach';
       bank = 0;
@@ -88,7 +94,7 @@ export function createForestTrack() {
       name = 'Gravity Flip 2 (180 Roll Back Upright)';
       bank = 0;
     } else if (i === 31) {
-      name = 'Skull Cranium Exit Straight';
+      name = 'Skull Cranium Exit Straight (True Half-Turn Behind Skull)';
       bank = 0;
     } else if (i >= 32 && i <= 34) {
       name = 'Ancient Banyan Sweeper';
@@ -141,12 +147,12 @@ export function createForestTrack() {
     pads: [
       { s: 500, x: 0, kind: 'boost' },
       { s: 1800, x: 0, kind: 'boost' },  // Pre-jump 1
-      { s: 3100, x: -6, kind: 'boost' }, // Cascade approach
+      { s: 3100, x: 0, kind: 'boost' },  // Cascade approach (moved off bend onto centerline)
       { s: 4100, x: 0, kind: 'boost' },  // Cave entry boost
       { s: 4500, x: 0, kind: 'boost' },  // Pre-chasm jump in waterfall cavern
       { s: 5600, x: 0, kind: 'boost' },  // Cave exit boost
       { s: 7400, x: 0, kind: 'boost' },  // Pre-loop boost
-      { s: 8700, x: 6, kind: 'boost' },  // Post-loop straight
+      { s: 8700, x: 0, kind: 'boost' },  // Post-loop straight (moved off bend onto centerline)
       { s: 9900, x: 0, kind: 'boost' },  // Pre-flip 1 boost pad
       { s: 11050, x: 0, kind: 'boost' }, // Pre-flip 2 boost pad
       { s: 12800, x: 0, kind: 'boost' }, // Final straight

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { TRACK_W } from './track.js';
 
 export function createCrystalMaterial(emissiveHex = 0x00e5ff) {
-  return new THREE.MeshStandardMaterial({
+  const mat = new THREE.MeshStandardMaterial({
     color: 0x0a2233,
     emissive: emissiveHex,
     emissiveIntensity: 0.85,
@@ -13,6 +13,30 @@ export function createCrystalMaterial(emissiveHex = 0x00e5ff) {
     transparent: true,
     opacity: 0.92
   });
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vCrystalPos;`
+    ).replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+       vCrystalPos = position;`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+       varying vec3 vCrystalPos;`
+    ).replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
+       // Hexagonal prism facets: continuous trigonometric angle wrap, no branch-cut derivative spikes or dashed false edges
+       float theta = atan(vCrystalPos.z, vCrystalPos.x);
+       float facet = cos(theta * 6.0) * 0.5 + 0.5;
+       totalEmissiveRadiance *= (0.75 + 0.25 * facet);`
+    );
+  };
+  return mat;
 }
 
 export class SpiresAndGlacierCave {

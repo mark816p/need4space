@@ -308,8 +308,8 @@ async function boot() {
   await nextFrame();
   app.input = new InputHandler();
 
-  // Create 9-Ship Race
-  app.race = new Race(app.track, { difficulty: 'hard', numLaps: 3, airPitch: true });
+  // Create 9-Ship Race (default easy difficulty)
+  app.race = new Race(app.track, { difficulty: 'easy', numLaps: 3, airPitch: true });
   app.race.attachToScene(app.scene);
   app.playerRacer = app.race.playerRacer;
   app.ship = app.playerRacer.ship;
@@ -343,6 +343,13 @@ async function boot() {
       app.renderer.compile(app.scene, app.camera);
     } catch (e) {
       console.warn('[Renderer] Shader precompilation notice:', e);
+    }
+  }
+  if (app.post && app.post.compileAsync) {
+    try {
+      await app.post.compileAsync(app.renderer);
+    } catch (e) {
+      console.warn('[PostPipeline] Shader precompilation notice:', e);
     }
   }
 
@@ -400,11 +407,14 @@ async function boot() {
     // Input actions
     const input = app.input ? app.input.poll() : {};
     if (app.input && app.input.consumeTrigger('toggleMode')) {
-      app.mode = (app.mode === 'race') ? 'free' : 'race';
-      const elMode = document.getElementById('hud-mode');
-      if (elMode) elMode.textContent = app.mode === 'free' ? 'Free flight' : 'Race';
-      if (app.mode === 'race' && app.playerRacer) {
-        app.playerRacer.reset(app.playerRacer.s, 0, 60.0);
+      // Free flight toggle disabled while in menus or paused
+      if (!app.paused && (!app.menu || !app.menu.active)) {
+        app.mode = (app.mode === 'race') ? 'free' : 'race';
+        const elMode = document.getElementById('hud-mode');
+        if (elMode) elMode.textContent = app.mode === 'free' ? 'Free flight' : 'Race';
+        if (app.mode === 'race' && app.playerRacer) {
+          app.playerRacer.reset(app.playerRacer.s, 0, 60.0);
+        }
       }
     }
     if (app.input && app.input.consumeTrigger('respawn')) {

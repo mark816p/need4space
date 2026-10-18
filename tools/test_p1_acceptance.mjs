@@ -9,10 +9,10 @@ console.log('--- Testing P1 Ship It Acceptance Criteria ---');
 
 // 1. Version and Changelog
 console.log('1. Verifying Changelog...');
-assert.strictEqual(CURRENT_VERSION, '1.0.1', 'Current version must be 1.0.1');
-assert.strictEqual(CHANGELOG[0].version, '1.0.1');
-assert.strictEqual(CHANGELOG[0].title, 'Ship It');
-console.log('   ✓ Version is 1.0.1 with "Ship It" entry');
+const entryP1 = CHANGELOG.find(c => c.version === '1.0.1');
+assert(entryP1, 'CHANGELOG must contain 1.0.1 entry');
+assert.strictEqual(entryP1.title, 'Ship It');
+console.log('   ✓ Version entry 1.0.1 "Ship It" verified in changelog');
 
 // 2. Web App Manifest
 console.log('2. Verifying Web App Manifest...');

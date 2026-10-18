@@ -498,11 +498,13 @@ const LookCompositeShader = {
         col += bloom * bloomStrength;
       }
 
-      // Broad light shafts
+      // Broad light shafts: emerge only from broad light sources, suppressing single-pixel glint artifacts
       if (enableShafts > 0.5) {
         vec2 sunScreen = vec2(0.62, 0.32);
-        float shaft = max(0.0, 1.0 - length(vUv - sunScreen) * 0.95);
-        col += vec3(1.0, 0.95, 0.82) * (pow(shaft, 3.0) * 0.18);
+        float shaftDist = length(vUv - sunScreen);
+        float shaft = max(0.0, 1.0 - shaftDist * 0.95);
+        float broadMask = smoothstep(0.55, 0.05, shaftDist);
+        col += vec3(1.0, 0.95, 0.82) * (pow(shaft, 3.0) * broadMask * 0.20);
       }
 
       // 5. Look Pass: Tone Mapping & Film Optics
@@ -561,14 +563,16 @@ export class PostPipeline {
     const w = this.width;
     const h = this.height;
 
-    // 1. Full-res Scene Target (RGBA16F + Depth Texture)
+    // 1. Full-res Scene Target (RGBA16F + Depth Texture) with single MSAA resolve per frame
     this.sceneTarget = new THREE.WebGLRenderTarget(w, h, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
       type: THREE.HalfFloatType,
+      samples: 4, // Single MSAA resolve per frame
       depthTexture: new THREE.DepthTexture(w, h, THREE.UnsignedIntType)
     });
+    this.sceneTarget.resolveDepth = false; // Avoid redundant depth copy pass
 
     // 2. Half-res AO Targets
     const aoW = Math.max(1, Math.floor(w / 2));
@@ -824,6 +828,22 @@ export class PostPipeline {
 
     // Output to main screen canvas
     this.fsTriangle.render(this.renderer, this.matLookComposite, null);
+  }
+
+  async compileAsync(renderer) {
+    if (!renderer || !renderer.compileAsync) return;
+    const mats = [
+      this.matGTAO,
+      this.matBilateral,
+      this.matSSR,
+      this.matBloomHighPass,
+      this.matGaussianBlur,
+      this.matLookComposite
+    ];
+    await Promise.all(mats.map(m => {
+      this.fsTriangle.mesh.material = m;
+      return renderer.compileAsync(this.fsTriangle.scene, this.fsTriangle.camera);
+    }));
   }
 
   dispose() {

@@ -39,7 +39,8 @@ export function createDesertTrack() {
       bank = 0;
     } else if (i >= 8 && i <= 10) {
       name = 'Mesa & Butte S-Sweepers';
-      bank = (i % 2 === 0 ? 25 : -25);
+      // Desert slalom/S swing less, banked into turn
+      bank = (i % 2 === 0 ? 14 : -14);
       y += 15.0;
     } else if (i >= 12 && i <= 14) {
       name = 'Fallen Skyscraper Transit (Hollow Ruins)';
@@ -52,8 +53,8 @@ export function createDesertTrack() {
       bank = 0;
     } else if (i >= 18 && i <= 20) {
       name = 'Simoom Sandstorm Canyon';
-      // Entering towering dust ellipsoid
-      bank = -20;
+      // Entering towering dust ellipsoid — banked into turn
+      bank = 20;
       y += 20.0;
     } else if (i === 22) {
       name = 'Second Chasm Launch';
@@ -69,10 +70,11 @@ export function createDesertTrack() {
       y += 10.0;
     } else if (i >= 29 && i <= 32) {
       name = 'Transverse Dune Ridges Fast Run';
-      bank = -16;
+      bank = 16; // Banked into turn
       y -= 5.0;
-    } else if (i >= 34 && i <= 35) {
-      name = 'Home Oasis Straight';
+    } else if (i >= 33 && i <= 35) {
+      name = 'Home Oasis Straight & Grid Runway';
+      // Perfectly flat & unbanked runway to prevent collisions behind start line
       bank = 0;
       y = 10.0;
     }

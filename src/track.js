@@ -514,7 +514,8 @@ export function createSpaceTrack() {
       bank = 0;
     } else if (i === 36) {
       name = 'The Break (150m Vacuum Leap)';
-      bank = -10;
+      // Straighter ramp under pad at The Break
+      bank = 0;
     } else if (i === 38) {
       name = 'Colossus Upside-Down Hold Flip 1 Approach';
       bank = 0;
@@ -531,10 +532,12 @@ export function createSpaceTrack() {
       bank = 0;
     } else if (i >= 45 && i <= 49) {
       name = 'Cargo Hangar Bay & Staging Rack Towers';
-      bank = -6;
+      // Bulkhead jinks halved either side of flips
+      bank = -3;
     } else if (i >= 50 && i <= 54) {
       name = 'Trench Run & Barbette Defense Turrets';
-      bank = 4;
+      // Gentler trench sweepers
+      bank = 2;
     } else if (i >= 55 && i <= 57) {
       name = 'Hull Breach Exit & 650m Sensor Boom';
       bank = 16;

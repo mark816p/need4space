@@ -12,9 +12,13 @@ export class MenuManager {
     this.elResults = hasDoc ? document.getElementById('results') : null;
 
     this.isOpen = false;
-    this.currentView = null; // 'pause' | 'settings' | 'results' | 'changelog'
+    this.currentView = null; // 'pause' | 'settings' | 'results' | 'circuits' | 'changelog' | 'whats-new'
 
     this._bindEvents();
+  }
+
+  get active() {
+    return this.isOpen;
   }
 
   _bindEvents() {
@@ -22,13 +26,78 @@ export class MenuManager {
 
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Escape') {
-        this.togglePause();
+        if (this.currentView === 'settings' || this.currentView === 'circuits' || this.currentView === 'changelog' || this.currentView === 'whats-new') {
+          this._renderPauseMenu();
+        } else {
+          this.togglePause();
+        }
       } else if (e.code === 'KeyR') {
         if (this.currentView === 'results' || this.app.paused) {
           this.restartRace();
         }
+      } else if (this.isOpen) {
+        if (e.code === 'ArrowDown' || e.code === 'ArrowUp') {
+          e.preventDefault();
+          this._navigateButtons(e.code === 'ArrowDown' ? 1 : -1);
+        } else if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+          const focused = document.activeElement;
+          if (focused && focused.tagName === 'BUTTON') {
+            focused.click();
+          }
+        }
       }
     });
+  }
+
+  _navigateButtons(dir) {
+    const activeDialog = this.elSettings && !this.elSettings.classList.contains('hidden') ? this.elSettings :
+                         this.elResults && !this.elResults.classList.contains('hidden') ? this.elResults :
+                         this.elMenu && !this.elMenu.classList.contains('hidden') ? this.elMenu : null;
+    if (!activeDialog) return;
+    const btns = Array.from(activeDialog.querySelectorAll('button:not(.hint-btn)'));
+    if (!btns.length) return;
+    const curIdx = btns.indexOf(document.activeElement);
+    let nextIdx = 0;
+    if (curIdx >= 0) {
+      nextIdx = (curIdx + dir + btns.length) % btns.length;
+    } else if (dir < 0) {
+      nextIdx = btns.length - 1;
+    }
+    btns[nextIdx].focus();
+  }
+
+  _renderHints(container) {
+    if (!container || typeof container.querySelector !== 'function' || typeof document === 'undefined') return;
+    const card = container.querySelector('.dialog-card');
+    if (!card) return;
+    const hints = document.createElement('div');
+    hints.className = 'menu-hints';
+    hints.innerHTML = `
+      <button class="hint-btn" id="hint-esc"><span class="hint-key">Esc</span> Back</button>
+      <button class="hint-btn" id="hint-enter"><span class="hint-key">↵</span> Enter</button>
+      <button class="hint-btn" id="hint-arrows"><span class="hint-key">▲▼</span> Navigate</button>
+      <button class="hint-btn" id="hint-r"><span class="hint-key">R</span> Restart</button>
+    `;
+
+    hints.querySelector('#hint-esc')?.addEventListener('click', () => {
+      if (this.currentView === 'settings' || this.currentView === 'circuits' || this.currentView === 'changelog' || this.currentView === 'whats-new') {
+        this._renderPauseMenu();
+      } else if (this.isOpen) {
+        this.resume();
+      }
+    });
+    hints.querySelector('#hint-enter')?.addEventListener('click', () => {
+      const focused = document.activeElement;
+      if (focused && typeof focused.click === 'function') focused.click();
+    });
+    hints.querySelector('#hint-arrows')?.addEventListener('click', () => {
+      this._navigateButtons(1);
+    });
+    hints.querySelector('#hint-r')?.addEventListener('click', () => {
+      this.restartRace();
+    });
+
+    card.appendChild(hints);
   }
 
   togglePause() {
@@ -85,6 +154,7 @@ export class MenuManager {
     if (!this.elMenu) return;
     this._hideAllDialogs();
     this.elMenu.classList.remove('hidden');
+    this.currentView = 'pause';
 
     this.elMenu.innerHTML = `
       <div class="dialog-card">
@@ -94,16 +164,52 @@ export class MenuManager {
           <button class="btn" id="btn-restart">RESTART CIRCUIT</button>
           <button class="btn" id="btn-circuits">SELECT CIRCUIT</button>
           <button class="btn" id="btn-options">OPTIONS</button>
-          <button class="btn" id="btn-changelog">CHANGELOG (v${CURRENT_VERSION})</button>
+          <button class="btn" id="btn-whats-new">WHAT'S NEW IN v${CURRENT_VERSION}</button>
+          <button class="btn" id="btn-changelog">CHANGELOG</button>
         </div>
       </div>
     `;
 
+    this._renderHints(this.elMenu);
     document.getElementById('btn-resume')?.addEventListener('click', () => this.resume());
     document.getElementById('btn-restart')?.addEventListener('click', () => this.restartRace());
     document.getElementById('btn-circuits')?.addEventListener('click', () => this.showCircuits());
     document.getElementById('btn-options')?.addEventListener('click', () => this.showOptions());
+    document.getElementById('btn-whats-new')?.addEventListener('click', () => this.showWhatsNew());
     document.getElementById('btn-changelog')?.addEventListener('click', () => this.showChangelog());
+  }
+
+  showWhatsNew() {
+    if (!this.elMenu) return;
+    this._hideAllDialogs();
+    this.elMenu.classList.remove('hidden');
+    this.currentView = 'whats-new';
+
+    this.elMenu.innerHTML = `
+      <div class="dialog-card whats-new-card" style="max-width: 680px;">
+        <h2 class="dialog-title">WHAT'S NEW IN v1.1 "FOUR WORLDS"</h2>
+        <div class="whats-new-body" style="text-align: left; max-height: 380px; overflow-y: auto; margin: 12px 0 16px 0; padding: 14px 18px; background: rgba(0,0,0,0.45); border-radius: 6px; font-size: 14px; line-height: 1.6; color: #cbd5e1; border: 1px solid rgba(255,255,255,0.08);">
+          <h3 style="color: var(--accent-cyan); font-family: Orbitron, sans-serif; font-size: 14px; margin-top: 4px; margin-bottom: 6px; letter-spacing: 1px;">FOUR EXPANSIVE PLANETARY CIRCUITS</h3>
+          <p style="margin-bottom: 10px;"><strong style="color: #fff;">Orbital Station (26.6 km):</strong> Space route threading the 12 km derelict Colossus through its engine bell, pulsing reactor hall, vacuum break leap, upside-down hold, and barbette trench run.</p>
+          <p style="margin-bottom: 10px;"><strong style="color: var(--accent-green);">Forest Moon (13.8 km):</strong> High-speed canopy sweepers, floating island crest jump, subterranean lake cavern, 600m verdant loop, and inverted flight past a colossal reptile skeleton.</p>
+          <p style="margin-bottom: 10px;"><strong style="color: #38bdf8;">Ice Planet (14.0 km):</strong> Glacial sastrugi, crystal garden prisms with internal facets, 270m crevasse dive, glacier bore cave, and sea floes gravity flips in howling blizzards.</p>
+          <p style="margin-bottom: 14px;"><strong style="color: #f59e0b;">Desert Planet (14.3 km):</strong> Layered sandstone gorge, hollow fallen skyscraper transit, sandstone arches, two chasm jumps, and sweepers through a towering simoom sandstorm.</p>
+
+          <h3 style="color: var(--accent-cyan); font-family: Orbitron, sans-serif; font-size: 14px; margin-top: 14px; margin-bottom: 6px; letter-spacing: 1px;">DIFFICULTY & PLAYER PERKS</h3>
+          <p style="margin-bottom: 10px;"><strong style="color: #fff;">Four Difficulty Tiers:</strong> Easy, Normal, Hard, and Brutal calibrated so rivals follow strict median lap times.</p>
+          <p style="margin-bottom: 14px;"><strong style="color: #fff;">Player Cornering Assist:</strong> On Easy, enjoy gentle steering assistance toward the apex and wall scrapes that are five times less punishing (wallScrapeDamp: 0.2).</p>
+
+          <h3 style="color: var(--accent-cyan); font-family: Orbitron, sans-serif; font-size: 14px; margin-top: 14px; margin-bottom: 6px; letter-spacing: 1px;">ATMOSPHERIC VISUALS & OPTIMIZATIONS</h3>
+          <p style="margin-bottom: 4px;">GPU blizzard streaks, sandstorm dust volume, light shaft glint filtering, single-pass MSAA resolve, and parallel post-processing shader precompilation.</p>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-primary" id="btn-wn-back">RETURN</button>
+        </div>
+      </div>
+    `;
+
+    this._renderHints(this.elMenu);
+    document.getElementById('btn-wn-back')?.addEventListener('click', () => this._renderPauseMenu());
   }
 
   showOptions() {
@@ -135,7 +241,8 @@ export class MenuManager {
           </div>
           <div class="form-row">
             <label>DIFFICULTY</label>
-            <div class="btn-group">
+            <div class="btn-group difficulty-row">
+              <button class="btn-opt ${s.difficulty === 'easy' ? 'active' : ''}" data-d="easy">EASY</button>
               <button class="btn-opt ${s.difficulty === 'normal' ? 'active' : ''}" data-d="normal">NORMAL</button>
               <button class="btn-opt ${s.difficulty === 'hard' ? 'active' : ''}" data-d="hard">HARD</button>
               <button class="btn-opt ${s.difficulty === 'brutal' ? 'active' : ''}" data-d="brutal">BRUTAL</button>
@@ -161,8 +268,13 @@ export class MenuManager {
         <div class="dialog-actions">
           <button class="btn btn-primary" id="btn-back">APPLY & RETURN</button>
         </div>
+        <div class="settings-copyright">
+          Need4Space v${CURRENT_VERSION} &bull; &copy; 2026 &lt;OWNER&gt;. All Rights Reserved. <!-- <OWNER> -->
+        </div>
       </div>
     `;
+
+    this._renderHints(this.elSettings);
 
     // Bind graphics buttons
     if (this.elSettings.querySelectorAll) {
@@ -198,6 +310,9 @@ export class MenuManager {
           const d = e.target.dataset.d;
           if (this.app.settings) {
             this.app.settings.set('difficulty', d);
+          }
+          if (this.app.race) {
+            this.app.race.setDifficulty(d);
           }
           this.showOptions();
         });
@@ -254,6 +369,7 @@ export class MenuManager {
       </div>
     `;
 
+    this._renderHints(this.elMenu);
     document.getElementById('btn-cl-back')?.addEventListener('click', () => this._renderPauseMenu());
   }
 
@@ -307,6 +423,8 @@ export class MenuManager {
         </div>
       </div>
     `;
+
+    this._renderHints(this.elSettings);
 
     if (this.elSettings.querySelectorAll) {
       this.elSettings.querySelectorAll('[data-circuit]').forEach(btn => {
@@ -365,6 +483,7 @@ export class MenuManager {
       </div>
     `;
 
+    this._renderHints(this.elResults);
     document.getElementById('btn-res-restart')?.addEventListener('click', () => this.restartRace());
   }
 }

@@ -3,10 +3,11 @@
 
 export const DEFAULT_SETTINGS = {
   quality: 'high', // 'low' | 'medium' | 'high' | 'ultra'
-  difficulty: 'hard', // 'normal' | 'hard' | 'brutal'
+  difficulty: 'easy', // Easy difficulty as default ('easy' | 'normal' | 'hard' | 'brutal')
   laptopMode: false, // Performance optimization for low-power or integrated GPUs
   fov: 65,
   airPitch: true, // Nose control in the air (PITCH_AIR = 14 m/s²)
+  drift: false, // Drift off by default (code dormant behind TrackRacer.drifting)
   volumeMaster: 0.9,
   volumeSFX: 0.85,
   volumeEngine: 0.8,

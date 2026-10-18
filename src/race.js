@@ -7,6 +7,7 @@ import { damp, clamp } from './noise.js';
 import { TrackRacer } from './track.js';
 import { Ship } from './ship.js';
 import { buildFeatherS1, createShipMaterials } from './shipmodels.js';
+import { PERKS } from './ships.js';
 
 // 9 Racing Teams (colors, liveries, engine colors)
 export const TEAMS = [
@@ -77,29 +78,41 @@ export const TEAMS = [
 
 // AI Skill / Difficulty parameters
 export const AI_LEVELS = {
+  easy: {
+    speedMul: 0.89,
+    padHitRate: 0.65,
+    steerGrip: 8.0,
+    boostProb: 0.45,
+    wander: 2.2,
+    lookAhead: 26.0,
+    boostInterval: 850
+  },
   normal: {
-    speedMul: 0.93,
-    padHitRate: 0.82,
-    steerGrip: 8.5,
+    speedMul: 0.94,
+    padHitRate: 0.80,
+    steerGrip: 9.5,
     boostProb: 0.70,
-    wander: 1.8,
-    lookAhead: 28.0
+    wander: 1.5,
+    lookAhead: 30.0,
+    boostInterval: 650
   },
   hard: {
-    speedMul: 0.985,
-    padHitRate: 0.95,
-    steerGrip: 11.5,
-    boostProb: 0.90,
-    wander: 0.8,
-    lookAhead: 38.0
+    speedMul: 0.99,
+    padHitRate: 0.92,
+    steerGrip: 12.0,
+    boostProb: 0.88,
+    wander: 0.7,
+    lookAhead: 38.0,
+    boostInterval: 500
   },
   brutal: {
-    speedMul: 1.025,
-    padHitRate: 1.0,
+    speedMul: 1.01,
+    padHitRate: 0.98,
     steerGrip: 14.0,
-    boostProb: 0.98,
+    boostProb: 0.96,
     wander: 0.2,
-    lookAhead: 48.0
+    lookAhead: 46.0,
+    boostInterval: 420
   }
 };
 
@@ -107,11 +120,11 @@ export const AI_LEVELS = {
 export const POINTS = [25, 18, 15, 12, 10, 8, 6, 4, 2];
 
 export class DriverAI {
-  constructor(racer, track, skill = 'hard') {
+  constructor(racer, track, skill = 'easy') {
     this.racer = racer;
     this.track = track;
     this.skill = skill;
-    this.params = AI_LEVELS[skill] || AI_LEVELS.hard;
+    this.params = AI_LEVELS[skill] || AI_LEVELS.easy;
 
     // AI Driving state
     this.laneOffset = (Math.random() - 0.5) * 1.5;
@@ -126,8 +139,10 @@ export class DriverAI {
     // 1. Target lateral line from track racing line (corners, apexes, pads)
     let targetX = track.racingLine(s) + this.laneOffset;
 
-    // Force strict centering over cuts, gaps, and loops
+    // Force strict centering over cuts, gaps, and loops; leave centre sooner after a flip
     if (track.inGap(s) || track.inLoop(s)) {
+      targetX = 0;
+    } else if (track.inFlip && track.inFlip(s)) {
       targetX = 0;
     } else {
       // Seek boost pads if nearby and skill roll permits
@@ -142,6 +157,10 @@ export class DriverAI {
         }
       }
     }
+
+    // Rivals keep lane off walls
+    const maxMargin = (28.0) - 7.5; // Wall at ±28m (TRACK_W 56m)
+    targetX = clamp(targetX, -maxMargin, maxMargin);
 
     // 2. Traffic avoidance: look ahead for rivals within 25m
     for (let i = 0; i < allRacers.length; i++) {
@@ -176,11 +195,12 @@ export class DriverAI {
 
     // 5. Boost Planning
     let boost = false;
+    const interval = this.params.boostInterval || 600.0;
     if (r.boostEnergy > 0.45 && !r.isBoosting && Math.random() < this.params.boostProb) {
       // Prefer boosting on straights
       const isStraight = curveTarget > 230.0;
       const distSinceBoost = (s - this.lastBoostS + track.length) % track.length;
-      if (isStraight && distSinceBoost > 600.0) {
+      if (isStraight && distSinceBoost > interval) {
         boost = true;
         this.lastBoostS = s;
       }
@@ -194,7 +214,7 @@ export class Race {
   constructor(track, options = {}) {
     this.track = track;
     this.options = options;
-    this.difficulty = options.difficulty || 'hard';
+    this.difficulty = options.difficulty || 'easy';
     this.numLaps = options.numLaps || 3;
     this.state = 'countdown'; // 'grid' | 'countdown' | 'racing' | 'finished'
     this.countdownTime = 4.0;  // 3-2-1-GO! (4 seconds total)
@@ -254,6 +274,20 @@ export class Race {
     }
 
     this._updateStandings();
+  }
+
+  setDifficulty(difficulty) {
+    this.difficulty = difficulty;
+    for (let k = 0; k < this.racers.length; k++) {
+      const racer = this.racers[k];
+      if (racer.isPlayer) {
+        racer.difficulty = difficulty;
+        racer.perks = PERKS[difficulty] || PERKS.easy;
+      } else if (this.drivers[k]) {
+        this.drivers[k].skill = difficulty;
+        this.drivers[k].params = AI_LEVELS[difficulty] || AI_LEVELS.easy;
+      }
+    }
   }
 
   attachToScene(scene) {

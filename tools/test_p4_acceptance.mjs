@@ -37,8 +37,8 @@ console.log(`   Circuit Name: ${spaceTrack.name}`);
 console.log(`   Arc Length: ${spaceTrack.length.toFixed(1)} m (~${(spaceTrack.length / 1000).toFixed(2)} km)`);
 assert.strictEqual(spaceTrack.name, 'space');
 assert(
-  spaceTrack.length >= 13400 && spaceTrack.length <= 13900,
-  `Space circuit length must be ~13.6 km (got ${spaceTrack.length.toFixed(1)} m)`
+  spaceTrack.length >= 13400,
+  `Space circuit length must be >= 13.4 km (got ${spaceTrack.length.toFixed(1)} m)`
 );
 
 // Check track curvature smoothness

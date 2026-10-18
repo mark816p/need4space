@@ -381,6 +381,13 @@ export class TrackRacer {
       if (airbrakeL) effectiveSteer -= this.handling.airbrakeTurn * 0.6;
       if (airbrakeR) effectiveSteer += this.handling.airbrakeTurn * 0.6;
 
+      // Player cornering steer assistance by difficulty
+      if (this.isPlayer && this.perks && this.perks.autoSteerAssist > 0) {
+        const targetLine = this.track.racingLine(this.s);
+        const assist = clamp((targetLine - this.x) * 0.05, -1.0, 1.0);
+        effectiveSteer += assist * this.perks.autoSteerAssist;
+      }
+
       if (this.isDrifting) {
         // Turns at 1.3x turn rate
         effectiveSteer *= 1.3;
@@ -407,7 +414,9 @@ export class TrackRacer {
         this.vx = -this.vx * this.handling.wallBounce;
 
         // Friction along wall: retains forward velocity ("never stuck on wall")
-        const speedLoss = Math.abs(this.vs) * (this.handling.wallFriction * 0.2);
+        // Player wallScrapeDamp makes knocks a fifth as costly on Easy
+        const wallDamp = (this.isPlayer && this.perks && this.perks.wallScrapeDamp !== undefined) ? this.perks.wallScrapeDamp : 1.0;
+        const speedLoss = Math.abs(this.vs) * (this.handling.wallFriction * 0.2) * wallDamp;
         this.vs = Math.max(30.0, this.vs - speedLoss);
 
         // Emit scrape event with cooldown

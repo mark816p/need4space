@@ -56,7 +56,7 @@ export class BlizzardWeather {
 
           // Distance to camera: fade out near lens (no smear across view!) and far away
           float dist = length(p);
-          float nearFade = smoothstep(3.5, 9.0, dist); // Kept strictly off the lens
+          float nearFade = smoothstep(5.0, 12.0, dist); // Blowing snow kept strictly off the lens
           float farFade = 1.0 - smoothstep(100.0, 150.0, dist);
 
           // Diamond dust glints: forward scattering towards sun
@@ -69,7 +69,8 @@ export class BlizzardWeather {
           vAlpha = nearFade * farFade * (0.35 + aSeed.z * 0.45) * (1.0 - uShelter);
 
           vec4 mvPosition = modelViewMatrix * vec4(worldPos, 1.0);
-          gl_PointSize = (3.5 + aSeed.x * 4.0) * (300.0 / -mvPosition.z);
+          // Finer snow particle sizing on ice
+          gl_PointSize = (1.8 + aSeed.x * 2.2) * (300.0 / -mvPosition.z);
           gl_Position = projectionMatrix * mvPosition;
         }
       `,
@@ -77,11 +78,11 @@ export class BlizzardWeather {
         varying float vAlpha;
         varying float vGlint;
         void main() {
-          // Circular soft particle
+          // Short streak particle rendering: elliptical compression along motion
           vec2 coord = gl_PointCoord - vec2(0.5);
-          float r = length(coord);
+          float r = length(vec2(coord.x * 2.2, coord.y * 0.75));
           if (r > 0.5) discard;
-          float circle = smoothstep(0.5, 0.1, r);
+          float circle = smoothstep(0.5, 0.05, r);
 
           vec3 baseSnow = vec3(0.85, 0.92, 1.0);
           vec3 glintCol = vec3(1.0, 0.95, 0.85);
