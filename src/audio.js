@@ -427,6 +427,137 @@ export class AudioManager {
     osc2.stop(t + 0.38);
   }
 
+  // Critical Health Warning Alarm: 2-tone urgent warning pulse (v1.8.0)
+  playAlarm() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(880, t);
+    osc.frequency.setValueAtTime(660, t + 0.08);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1400, t);
+    filter.Q.value = 3.0;
+
+    gain.gain.setValueAtTime(0.3, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(t);
+    osc.stop(t + 0.17);
+  }
+
+  // Ship Disintegration Explosion: Low-end sub blast + noise roar + debris crackle (v1.8.0)
+  playExplosion() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+
+    // Sub detonation
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, t);
+    osc.frequency.exponentialRampToValueAtTime(28, t + 0.55);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.85, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.65);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.65);
+
+    // Filtered noise roar
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = getNoiseBuffer(this.ctx);
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(2800, t);
+    filter.frequency.exponentialRampToValueAtTime(120, t + 0.7);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.75, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.75);
+
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(this.sfxGain);
+    noise.start(t);
+    noise.stop(t + 0.75);
+  }
+
+  // Heavy Lateral Slam Impact: Sub-impact thump + crunch (v1.11.0)
+  playSlam() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+
+    // Impact thump
+    const osc = this.ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(160, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.22);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.8, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.25);
+
+    // Metal crunch noise
+    const crunch = this.ctx.createBufferSource();
+    crunch.buffer = getNoiseBuffer(this.ctx);
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(1400, t);
+    filter.Q.value = 4.0;
+
+    const crunchGain = this.ctx.createGain();
+    crunchGain.gain.setValueAtTime(0.55, t);
+    crunchGain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+
+    crunch.connect(filter);
+    filter.connect(crunchGain);
+    crunchGain.connect(this.sfxGain);
+    crunch.start(t);
+    crunch.stop(t + 0.18);
+  }
+
+  // Energy Shield Damage Hit: High sizzle/crackle deflection (v1.8.0)
+  playShieldHit() {
+    if (!this.ctx || this.isMuted) return;
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(480, t);
+    osc.frequency.exponentialRampToValueAtTime(180, t + 0.14);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(2200, t);
+    filter.Q.value = 5.0;
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(0.4, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(t);
+    osc.stop(t + 0.15);
+  }
+
   setUnderwater(underK = 0.0) {
     if (!this.ctx || !this.underwaterFilter) return;
     const clamped = Math.max(0.0, Math.min(1.0, underK));

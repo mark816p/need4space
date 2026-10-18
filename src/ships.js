@@ -4,6 +4,8 @@
 
 export const AIRBRAKE_HOLD = 1.0; // s max hold duration per charge
 export const AIRBRAKE_WAIT = 3.0; // s recharge time
+export const REGEN_WAIT = 3.5;    // s cooldown before shield regenerates
+export const REGEN_RATE = 16.0;   // shield hp/s regeneration rate
 
 export const HANDLING = {
   feather: {
@@ -26,6 +28,11 @@ export const HANDLING = {
     magHold: 320.0,          // m/s2 magnetic hold adhering to track & inverted loops
     wallBounce: 0.25,        // Restitution on wall collision
     wallFriction: 0.12,      // Tangential velocity retention along wall
+    shield: 100.0,           // Base shield HP
+    maxShield: 100.0,        // Max shield HP
+    damageResist: 1.0,       // Damage multiplier (1.0 = standard)
+    slamForce: 35.0,         // m/s lateral impulse
+    slamDamage: 25.0,        // Base damage dealt on slam impact
     slamCool: 10.0           // s
   },
   rocket: {
@@ -48,6 +55,11 @@ export const HANDLING = {
     magHold: 300.0,
     wallBounce: 0.28,
     wallFriction: 0.14,
+    shield: 85.0,            // Lightweight speeder has 85 HP
+    maxShield: 85.0,
+    damageResist: 1.15,      // Takes 1.15x damage (fragile high-speed hull)
+    slamForce: 40.0,         // Rapid lateral thrust
+    slamDamage: 28.0,
     slamCool: 10.0
   },
   heavy: {
@@ -70,6 +82,11 @@ export const HANDLING = {
     magHold: 360.0,
     wallBounce: 0.18,
     wallFriction: 0.08,
+    shield: 160.0,           // Heavy armored lifting body has 160 HP
+    maxShield: 160.0,
+    damageResist: 0.65,      // Heavy armor: takes only 0.65x damage
+    slamForce: 55.0,         // Massive hydraulic slam impulse
+    slamDamage: 48.0,        // Devastating collision damage
     slamCool: 10.0
   }
 };

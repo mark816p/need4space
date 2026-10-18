@@ -271,7 +271,8 @@ console.log('PASS: Polygon offset applied to track markings to eliminate flicker
 // -----------------------------------------------------------------------------
 console.log('\n--- 8. Version Registry & Changelog ---');
 
-assert(CURRENT_VERSION >= '1.2.0', `CURRENT_VERSION is >= 1.2.0 (got ${CURRENT_VERSION})`);
+const [maj, min] = CURRENT_VERSION.split('.').map(Number);
+assert(maj > 1 || (maj === 1 && min >= 2), `CURRENT_VERSION is >= 1.2.0 (got ${CURRENT_VERSION})`);
 const v120 = CHANGELOG.find(entry => entry.version === '1.2.0');
 assert(v120, 'CHANGELOG contains v1.2.0 entry');
 assert(v120.notes.length >= 8, `v1.2.0 changelog has >= 8 notes (got ${v120.notes.length})`);

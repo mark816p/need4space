@@ -190,6 +190,39 @@ export function hookRacerEvents(app) {
     }
     if (app.cameraController) app.cameraController.addTrauma(0.5);
   });
+  app.playerRacer.on('damage', (e) => {
+    if (app.audio) app.audio.playShieldHit();
+    if (app.fx) app.fx.flash('damage', Math.min(1.0, e.amount / 25.0));
+    if (app.cameraController) app.cameraController.addTrauma(Math.min(0.7, e.amount / 35.0));
+  });
+  app.playerRacer.on('wreck', (e) => {
+    if (app.audio) app.audio.playExplosion();
+    if (app.fx) app.fx.emitExplosion(e.pos || app.playerRacer.pos, 75);
+    if (app.cameraController) app.cameraController.addTrauma(0.85);
+  });
+  app.playerRacer.on('slam_fire', (e) => {
+    if (app.fx) app.fx.flash('slam', 0.65);
+    if (app.cameraController) app.cameraController.addTrauma(0.35);
+  });
+  app.playerRacer.on('slam_hit', (e) => {
+    if (app.audio) app.audio.playSlam();
+    if (app.fx && app.playerRacer.pos && app.playerRacer.frame.R) {
+      app.fx.emitSlamShockwave(app.playerRacer.pos, app.playerRacer.frame.R, 40);
+    }
+    if (app.cameraController) app.cameraController.addTrauma(0.75);
+  });
+  app.playerRacer.on('knock', (e) => {
+    if (e.wasSlam) {
+      if (app.audio) app.audio.playSlam();
+      if (app.fx && app.playerRacer.pos && app.playerRacer.frame.R) {
+        app.fx.emitSlamShockwave(app.playerRacer.pos, app.playerRacer.frame.R, 40);
+      }
+      if (app.cameraController) app.cameraController.addTrauma(0.8);
+    } else {
+      if (app.audio) app.audio.playShieldHit();
+      if (app.cameraController) app.cameraController.addTrauma(0.4);
+    }
+  });
 }
 
 export async function loadCircuit(name = 'space') {
@@ -369,6 +402,7 @@ async function boot() {
   let frames = 0;
   let lastTime = performance.now();
   let lowFpsTime = 0;
+  let alarmTimer = 0;
   let lastCdSec = 5;
   let lastLapNum = 1;
   const _fCam = {};
@@ -477,9 +511,20 @@ async function boot() {
           app.hud.update(dt, app.playerRacer, input);
         }
 
-        // Update FX
+        // Update FX and Critical Alarm
+        const isCrit = (app.playerRacer.shield <= (app.playerRacer.maxShield * 0.25)) && !app.playerRacer.isDead;
         if (app.fx) {
+          app.fx.setCriticalAlarm(isCrit);
           app.fx.update(dt, app.playerRacer);
+        }
+        if (isCrit) {
+          alarmTimer += dt;
+          if (alarmTimer >= 0.85) {
+            alarmTimer = 0;
+            if (app.audio) app.audio.playAlarm();
+          }
+        } else {
+          alarmTimer = 0;
         }
 
         if (elState) {

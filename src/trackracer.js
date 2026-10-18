@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { damp, clamp } from './noise.js';
 import { TRACK_W, FIELD_H } from './track.js';
-import { HANDLING, PERKS } from './ships.js';
+import { HANDLING, PERKS, REGEN_WAIT, REGEN_RATE } from './ships.js';
 import { getChamberDarkness } from './wreckzones.js';
 
 export const PITCH_AIR = 14.0; // 14 m/s² nose control in the air
@@ -100,8 +100,30 @@ export class TrackRacer {
     this.airbrakeBlockedL = false;
     this.airbrakeBlockedR = false;
 
+    // Damage & Shields (v1.8.0)
+    this.maxShield = this.handling.maxShield || this.handling.shield || 100.0;
+    this.shield = this.maxShield;
+    this.damageCooldown = 0.0;
+    this.regenWait = REGEN_WAIT;
+    this.regenRate = REGEN_RATE;
+    this.isDead = false;
+    this.respawnTimer = 0.0;
+    this.respawnDuration = 2.2;
+
+    // The Slam lateral thrust mechanic (v1.11.0)
+    this.slamTimer = 0.0;
+    this.isSlamming = false;
+    this.slamActiveTimer = 0.0;
+    this.slamDuration = 0.35;
+    this.slamDir = 0;
+    this.simTime = 0.0;
+    this.lastSteerDir = 0;
+    this.lastSteerTapTime = -10.0;
+    this.prevSteerActive = false;
+
     // Event bus (consumed by FX, audio, and HUD)
     this.events = [];
+    this.listeners = new Map();
     this.lastWallHitTime = -10.0;
     this.lastPadTime = -10.0;
 
@@ -109,8 +131,22 @@ export class TrackRacer {
     this.frame = {};
   }
 
+  on(type, fn) {
+    if (!this.listeners.has(type)) {
+      this.listeners.set(type, []);
+    }
+    this.listeners.get(type).push(fn);
+  }
+
   emit(type, detail = {}) {
-    this.events.push({ type, time: performance.now() * 0.001, ...detail });
+    const time = (typeof performance !== 'undefined' ? performance.now() : Date.now()) * 0.001;
+    const ev = { type, time, ...detail };
+    this.events.push(ev);
+    if (this.listeners && this.listeners.has(type)) {
+      for (const fn of this.listeners.get(type)) {
+        try { fn(ev); } catch (e) { console.error(e); }
+      }
+    }
   }
 
   consumeEvents() {
@@ -118,6 +154,74 @@ export class TrackRacer {
     const ev = this.events;
     this.events = [];
     return ev;
+  }
+
+  takeDamage(amount, source = 'impact') {
+    if (this.isDead) return 0;
+    const effectiveDamage = Math.max(0, amount);
+    this.shield = Math.max(0, this.shield - effectiveDamage);
+    this.damageCooldown = 0.0;
+    this.emit('damage', {
+      amount: effectiveDamage,
+      shield: this.shield,
+      maxShield: this.maxShield,
+      source
+    });
+    if (this.shield <= 0 && !this.isDead) {
+      this.die();
+    }
+    return effectiveDamage;
+  }
+
+  die() {
+    this.isDead = true;
+    this.wrecked = true;
+    this.vs = 0;
+    this.respawnTimer = this.respawnDuration;
+    this.emit('wreck', { pos: this.pos ? this.pos.clone() : new THREE.Vector3() });
+    this.emit('explosion', { pos: this.pos ? this.pos.clone() : new THREE.Vector3() });
+    if (this.ship) {
+      if (typeof this.ship.setExploded === 'function') {
+        this.ship.setExploded(true);
+      } else if (this.ship.root) {
+        this.ship.root.visible = false;
+      }
+    }
+  }
+
+  respawn() {
+    this.x = 0;
+    this.vx = 0;
+    this.vh = 0;
+    this.h = this.handling.hoverHeight;
+    this.vs = Math.min(130.0, this.handling.topSpeed * 0.5);
+    this.shield = this.maxShield;
+    this.isDead = false;
+    this.wrecked = false;
+    this.inAir = false;
+    this.damageCooldown = 0.0;
+    if (this.ship) {
+      if (typeof this.ship.setExploded === 'function') {
+        this.ship.setExploded(false);
+      } else if (this.ship.root) {
+        this.ship.root.visible = true;
+      }
+    }
+    this.emit('respawn', { s: this.s });
+    this.updatePose(0);
+  }
+
+  fireSlam(dir = 0) {
+    if (this.isDead || this.slamTimer > 0) return false;
+    const slamDir = dir !== 0 ? Math.sign(dir) : (this.vx !== 0 ? Math.sign(this.vx) : 1);
+    const force = this.handling.slamForce || 35.0;
+    this.vx += slamDir * force;
+    this.slamTimer = this.handling.slamCool || 10.0;
+    this.isSlamming = true;
+    this.slamActiveTimer = this.slamDuration;
+    this.slamDir = slamDir;
+    this.emit('slam_fire', { dir: slamDir, force, duration: this.slamDuration });
+    return true;
   }
 
   reset(s = 0, x = 0, speed = 0) {
@@ -148,12 +252,51 @@ export class TrackRacer {
     this.airbrakeHoldTimer = 0.0;
     this.airbrakeRechargeTimer = 0.0;
     this.activeAirbrake = null;
+    this.maxShield = this.handling.maxShield || this.handling.shield || 100.0;
+    this.shield = this.maxShield;
+    this.isDead = false;
+    this.respawnTimer = 0.0;
+    this.damageCooldown = 0.0;
+    this.slamTimer = 0.0;
+    this.isSlamming = false;
+    this.slamActiveTimer = 0.0;
+    if (this.ship && this.ship.root) {
+      this.ship.root.visible = true;
+    }
     this.wrecked = false;
     this.updatePose(0);
   }
 
   step(dt, input = {}) {
     if (!this.track) return;
+
+    // 0a. Dead / Respawn Handling (v1.8.0)
+    if (this.isDead) {
+      this.respawnTimer -= dt;
+      if (this.respawnTimer <= 0) {
+        this.respawn();
+      }
+      return;
+    }
+
+    // 0b. Shield Regeneration (v1.8.0)
+    this.damageCooldown += dt;
+    if (this.damageCooldown >= this.regenWait && this.shield < this.maxShield) {
+      this.shield = Math.min(this.maxShield, this.shield + this.regenRate * dt);
+    }
+
+    // 0c. Slam Mechanics Cooldown & Active Window (v1.11.0)
+    if (this.slamTimer > 0) {
+      this.slamTimer -= dt;
+    }
+    if (this.isSlamming) {
+      this.slamActiveTimer -= dt;
+      if (this.slamActiveTimer <= 0) {
+        this.isSlamming = false;
+      }
+    }
+
+    this.simTime += dt;
 
     const throttle = input.throttle ?? 1.0;
     const brake = input.brake ?? 0;
@@ -162,6 +305,30 @@ export class TrackRacer {
     const rawAirbrakeR = input.airbrakeR ?? false;
     const boostPressed = input.boost ?? false;
     const rawPitch = input.pitch ?? 0;
+    const rawSlam = input.slam ?? false;
+
+    // Double-tap steer detection
+    const steerActive = Math.abs(steer) > 0.55;
+    const steerDir = Math.sign(steer);
+    let doubleTapSlam = false;
+    if (steerActive && !this.prevSteerActive) {
+      if (steerDir === this.lastSteerDir && (this.simTime - this.lastSteerTapTime) < 0.35) {
+        doubleTapSlam = true;
+      }
+      this.lastSteerDir = steerDir;
+      this.lastSteerTapTime = this.simTime;
+    }
+    this.prevSteerActive = steerActive;
+
+    // Slam activation
+    if ((rawSlam || doubleTapSlam) && this.slamTimer <= 0) {
+      let slamDir = 0;
+      if (doubleTapSlam) slamDir = steerDir;
+      else if (steer < -0.1 || rawAirbrakeL) slamDir = -1;
+      else if (steer > 0.1 || rawAirbrakeR) slamDir = 1;
+      else slamDir = (this.x > 0 ? -1 : 1);
+      this.fireSlam(slamDir);
+    }
 
     // 0. Airbrake Charge Management (1 shot = up to AIRBRAKE_HOLD 1.0s, AIRBRAKE_WAIT 3.0s recharge)
     if (!rawAirbrakeL) this.airbrakeBlockedL = false;
@@ -479,11 +646,15 @@ export class TrackRacer {
         const speedLoss = Math.abs(this.vs) * (this.handling.wallFriction * 0.2) * wallDamp;
         this.vs = Math.max(30.0, this.vs - speedLoss);
 
+        // Wall collision damage (v1.8.0)
+        const wallDamage = (speedLoss * 0.45 + 3.0) * (this.handling.damageResist || 1.0) * wallDamp;
+        this.takeDamage(wallDamage, 'wall');
+
         // Emit scrape event with cooldown
-        const nowSec = performance.now() * 0.001;
+        const nowSec = (typeof performance !== 'undefined' ? performance.now() : Date.now()) * 0.001;
         if (nowSec - this.lastWallHitTime > 0.25) {
           this.lastWallHitTime = nowSec;
-          this.emit('wall_hit', { side, speed: this.vs });
+          this.emit('wall_hit', { side, speed: this.vs, damage: wallDamage });
           if (this.ship) {
             this.ship.hit(new THREE.Vector3(side, 0, 0), 1.5);
           }

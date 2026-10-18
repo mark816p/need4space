@@ -3,6 +3,59 @@
 
 export const CHANGELOG = [
   {
+    version: '1.11.1',
+    title: 'Slam Polish & Kinetic Balance',
+    date: '2026-10-18',
+    notes: [
+      'Refined lateral sideswipe knockback impulses and recoil absorption across all craft classes',
+      'Dual-input slam execution: dedicated Space key trigger or rapid double-tap lateral steering',
+      'Audio-visual impact crunch: high-energy shockwave ring, spark bursts, and metallic deflection transients'
+    ]
+  },
+  {
+    version: '1.11.0',
+    title: 'The Slam Sideswipe',
+    date: '2026-10-18',
+    notes: [
+      'Offensive Lateral Slam: deliver aggressive sideswipes to push rivals into guardrails and track hazards',
+      'Class-scaled slam force and damage: Feather S1 (35N / 25 dmg), Comet R1 (40N / 28 dmg), and Anvil H1 (55N / 48 dmg)',
+      '10-second tactical cooldown timer balancing offensive aggression with defensive vulnerability'
+    ]
+  },
+  {
+    version: '1.10.0',
+    title: 'Named Aces & Tactical AI',
+    date: '2026-10-18',
+    notes: [
+      '9 Named Pilot Personas: race against Aria Vance, Kaelen Voss, Torin Drak, Maya Lin, Yuri Chen, Rei Tanaka, Brutus Volkov, and Lyra Thorne',
+      'Dynamic Driving Personalities: aggressive Slammers initiating close-range lateral hits, Speeders maximizing straightaway boosts, and precision Apex racers seeking boost pads',
+      'Contextual rival behavior reacting dynamically to nearby craft and track geometry'
+    ]
+  },
+  {
+    version: '1.9.0',
+    title: 'Mixed Fleet Hierarchy',
+    date: '2026-10-18',
+    notes: [
+      '3x3x3 Mixed Fleet Grid: 9-ship field composed of 3 Feathers, 3 Comets, and 3 Anvils matching authentic team liveries',
+      'Class-specific flight kinematics, roll banking, dry mass inertia, and engine VFX for all rival craft',
+      'Procedural multi-hull livery generation mapping team colors accurately across distinct craft topologies'
+    ]
+  },
+  {
+    version: '1.8.0',
+    title: 'Damage & Shield Systems',
+    date: '2026-10-18',
+    notes: [
+      'Class-Differentiated Shield Capacities: Feather S1 (100 HP), Comet R1 (85 HP), and Anvil H1 (160 HP) with specialized armor resistance',
+      'Wall and rival collision damage proportional to kinetic impact velocity and angle',
+      'Dynamic Shield Regeneration: field restoration initiates after 3.5s cooldown at 16 HP/s',
+      'Disintegration explosion at zero integrity: 120 radial hull fragments, trailing smoke, and automatic centerline respawn after 2.2s',
+      'Dedicated HUD Shield Gauge with real-time status, warning amber, and critical pulsing states',
+      'Cockpit alarm klaxon (880/660 Hz) and red peripheral warning vignette under critical damage (<25%)'
+    ]
+  },
+  {
     version: '1.7.0',
     title: 'The Anvil H1 & Ship Liveries',
     date: '2026-10-18',

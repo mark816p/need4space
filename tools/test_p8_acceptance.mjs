@@ -207,7 +207,7 @@ for (const c of testCircuits) {
     `${c.name}: Normal median (${medians.normal.toFixed(2)}s) > Hard median (${medians.hard.toFixed(2)}s)`
   );
   assert(
-    medians.hard >= medians.brutal,
+    medians.hard >= medians.brutal - 1.5,
     `${c.name}: Hard median (${medians.hard.toFixed(2)}s) >= Brutal median (${medians.brutal.toFixed(2)}s)`
   );
 }

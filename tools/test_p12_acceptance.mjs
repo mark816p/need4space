@@ -304,7 +304,8 @@ console.log('PASS: All 5 Living Ocean fauna and weather subsystems verified');
 // -----------------------------------------------------------------------------
 console.log('\n--- 6. Version Registry (changelog.js) ---');
 
-assert.strictEqual(CURRENT_VERSION, '1.7.0', 'CURRENT_VERSION is 1.7.0');
+const [maj, min] = CURRENT_VERSION.split('.').map(Number);
+assert(maj > 1 || (maj === 1 && min >= 7), `CURRENT_VERSION is >= 1.7.0 (got ${CURRENT_VERSION})`);
 const v170 = CHANGELOG.find(e => e.version === '1.7.0');
 const v160 = CHANGELOG.find(e => e.version === '1.6.0');
 const v150 = CHANGELOG.find(e => e.version === '1.5.0');

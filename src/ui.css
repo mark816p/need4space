@@ -378,6 +378,18 @@ body[data-ui="menu"] .hp {
   background: linear-gradient(90deg, #00d2ff, #00ff88);
   box-shadow: 0 0 8px #00ff88;
 }
+#shield .bar-fill {
+  background: linear-gradient(90deg, #00ffff, #0088ff);
+  box-shadow: 0 0 8px #00aaff;
+}
+#shield .bar-fill.warn {
+  background: linear-gradient(90deg, #ff8800, #ffcc00);
+  box-shadow: 0 0 8px #ff8800;
+}
+#shield .bar-fill.crit {
+  background: linear-gradient(90deg, #ff0044, #ff3300);
+  box-shadow: 0 0 10px #ff0044;
+}
 
 /* Minimap */
 #mapwrap {

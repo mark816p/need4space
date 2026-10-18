@@ -29,6 +29,7 @@ export class HUDController {
     this.elBstFill = hasDoc ? document.querySelector('#bst .bar-fill') : null;
     this.elThrFill = hasDoc ? document.querySelector('#thr .bar-fill') : null;
     this.elAirbrakeFill = hasDoc ? document.getElementById('airbrake-fill') : null;
+    this.elShieldFill = hasDoc ? document.getElementById('shield-fill') : null;
     this.elBstOverflow = hasDoc ? document.getElementById('bst-overflow') : null;
     this.elDriftChain = hasDoc ? document.getElementById('drift-chain') : null;
     this.elState = hasDoc ? document.getElementById('state') : null;
@@ -189,6 +190,24 @@ export class HUDController {
       const rechgFrac = curChg < maxChg ? (playerRacer.airbrakeRechargeTimer || 0) / 3.0 : 0;
       const totalRatio = Math.min(1.0, (curChg + rechgFrac) / maxChg);
       this.elAirbrakeFill.style.width = `${Math.round(totalRatio * 100)}%`;
+    }
+    if (this.elShieldFill) {
+      const maxSh = playerRacer.maxShield || 100.0;
+      const curSh = playerRacer.shield !== undefined ? playerRacer.shield : maxSh;
+      const shPct = Math.max(0, Math.min(100, Math.round((curSh / maxSh) * 100)));
+      this.elShieldFill.style.width = `${shPct}%`;
+      if (this.elShieldFill.classList) {
+        if (shPct <= 25) {
+          this.elShieldFill.classList.add('crit');
+          this.elShieldFill.classList.remove('warn');
+        } else if (shPct <= 50) {
+          this.elShieldFill.classList.add('warn');
+          this.elShieldFill.classList.remove('crit');
+        } else {
+          this.elShieldFill.classList.remove('warn');
+          this.elShieldFill.classList.remove('crit');
+        }
+      }
     }
 
     // Drift Chain indicator (dormant when drift inactive)

@@ -20,8 +20,15 @@ export class FXSystem {
     // Wall Scrape Spark Particles
     this._initSparkParticles();
 
+    // Explosion Fragment System (v1.8.0)
+    this._initExplosionParticles();
+
     // Drift FX System (dormant when TrackRacer.drifting is false)
     this._initDriftFX();
+
+    // Critical alarm state
+    this.criticalAlarm = false;
+    this.critPhase = 0.0;
   }
 
   // ---------------------------------------------------------------------------
@@ -63,9 +70,19 @@ export class FXSystem {
     } else if (type === 'pad') {
       this.edgeColor = 'rgba(0, 255, 136, 0.65)'; // Bright Neon Green/Cyan
     } else if (type === 'impact') {
-      this.edgeColor = 'rgba(255, 50, 80, 0.65)';  // Red/Orange Warning
+      this.edgeColor = 'rgba(255, 80, 50, 0.65)';  // Red/Orange Warning
+    } else if (type === 'damage') {
+      this.edgeColor = 'rgba(255, 20, 40, 0.85)';  // Red Damage Flash
+    } else if (type === 'slam') {
+      this.edgeColor = 'rgba(255, 160, 20, 0.85)'; // Amber Slam Flash
+    } else if (type === 'crit') {
+      this.edgeColor = 'rgba(255, 0, 30, 0.9)';   // Critical Red Flash
     }
     this.edgeOpacity = Math.min(1.0, intensity);
+  }
+
+  setCriticalAlarm(active) {
+    this.criticalAlarm = !!active;
   }
 
   // ---------------------------------------------------------------------------
@@ -171,10 +188,92 @@ export class FXSystem {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // 4. Explosion Fragment & Debris System (v1.8.0)
+  // ---------------------------------------------------------------------------
+  _initExplosionParticles() {
+    this.maxFrags = 120;
+    this.fragments = [];
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(this.maxFrags * 3);
+    const colors = new Float32Array(this.maxFrags * 3);
+
+    for (let i = 0; i < this.maxFrags; i++) {
+      positions[i * 3 + 1] = -9999;
+      // Fiery explosion palette: white-hot -> orange -> red-violet
+      const r = 1.0;
+      const g = 0.3 + Math.random() * 0.6;
+      const b = Math.random() * 0.2;
+      colors[i * 3] = r;
+      colors[i * 3 + 1] = g;
+      colors[i * 3 + 2] = b;
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+    const material = new THREE.PointsMaterial({
+      size: 3.5,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+
+    this.explosionMesh = new THREE.Points(geometry, material);
+    this.explosionMesh.frustumCulled = false;
+    this.scene.add(this.explosionMesh);
+
+    for (let i = 0; i < this.maxFrags; i++) {
+      this.fragments.push({
+        pos: new THREE.Vector3(0, -9999, 0),
+        vel: new THREE.Vector3(),
+        life: 0.0,
+        maxLife: 1.2
+      });
+    }
+  }
+
+  emitExplosion(origin, count = 60) {
+    let emitted = 0;
+    for (let i = 0; i < this.fragments.length && emitted < count; i++) {
+      const fr = this.fragments[i];
+      if (fr.life <= 0) {
+        fr.pos.copy(origin);
+        // Spherical explosion burst with high radial speed (25 - 65 m/s)
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(Math.random() * 2 - 1);
+        const speed = 25.0 + Math.random() * 45.0;
+        fr.vel.set(
+          Math.sin(phi) * Math.cos(theta) * speed,
+          Math.cos(phi) * speed + 10.0, // upward bias
+          Math.sin(phi) * Math.sin(theta) * speed
+        );
+        fr.life = 0.6 + Math.random() * 0.8;
+        fr.maxLife = fr.life;
+        emitted++;
+      }
+    }
+    this.flash('crit', 1.0);
+  }
+
+  emitSlamShockwave(origin, normal, count = 35) {
+    this.emitSparks(origin, normal, count);
+    this.flash('slam', 0.85);
+  }
+
   update(dt, playerRacer) {
-    // 1. Decay Edgeflash
+    // 1. Critical Alarm & Screen Vignette
     if (this.elEdge) {
-      if (this.edgeOpacity > 0.005) {
+      if (this.criticalAlarm) {
+        this.critPhase += dt * 6.5;
+        const pulse = 0.45 + 0.4 * Math.sin(this.critPhase);
+        this.edgeColor = 'rgba(255, 0, 30, 0.85)';
+        this.edgeOpacity = Math.max(this.edgeOpacity, pulse);
+        this.elEdge.style.background = `radial-gradient(ellipse at center, transparent 55%, ${this.edgeColor} 100%)`;
+        this.elEdge.style.opacity = this.edgeOpacity.toFixed(3);
+      } else if (this.edgeOpacity > 0.005) {
         this.edgeOpacity = damp(this.edgeOpacity, 0.0, 7.0, dt);
         this.elEdge.style.background = `radial-gradient(ellipse at center, transparent 60%, ${this.edgeColor} 100%)`;
         this.elEdge.style.opacity = this.edgeOpacity.toFixed(3);
@@ -213,6 +312,29 @@ export class FXSystem {
           arr[i * 3] = sp.pos.x;
           arr[i * 3 + 1] = sp.pos.y;
           arr[i * 3 + 2] = sp.pos.z;
+        } else {
+          arr[i * 3 + 1] = -9999;
+        }
+      }
+      posAttr.needsUpdate = true;
+    }
+
+    // 4. Update Explosion Fragments Physics
+    if (this.explosionMesh) {
+      const posAttr = this.explosionMesh.geometry.attributes.position;
+      const arr = posAttr.array;
+
+      for (let i = 0; i < this.fragments.length; i++) {
+        const fr = this.fragments[i];
+        if (fr.life > 0) {
+          fr.life -= dt;
+          fr.pos.addScaledVector(fr.vel, dt);
+          fr.vel.y -= 22.0 * dt; // Gravity drag
+          fr.vel.multiplyScalar(Math.max(0, 1.0 - 0.9 * dt)); // Air resistance
+
+          arr[i * 3] = fr.pos.x;
+          arr[i * 3 + 1] = fr.pos.y;
+          arr[i * 3 + 2] = fr.pos.z;
         } else {
           arr[i * 3 + 1] = -9999;
         }
