@@ -562,11 +562,17 @@ export function buildTrackMeshes(track, scene) {
   }
   const lineTex = new THREE.CanvasTexture(lineCanvas);
   lineTex.colorSpace = THREE.SRGBColorSpace;
-  const lineMat = new THREE.MeshBasicMaterial({ map: lineTex });
+  const lineMat = new THREE.MeshBasicMaterial({
+    map: lineTex,
+    polygonOffset: true,
+    polygonOffsetFactor: -1.0,
+    polygonOffsetUnits: -4.0,
+    depthWrite: false
+  });
   const lineGeom = new THREE.PlaneGeometry(TRACK_W - 4.0, 6.0);
   const startLine = new THREE.Mesh(lineGeom, lineMat);
   startLine.rotation.x = -Math.PI * 0.5;
-  startLine.position.set(0, 0.05, 0); // Flush on deck
+  startLine.position.set(0, 0.08, 0); // Flush on deck with polygon offset to eliminate z-fighting
   startArch.add(startLine);
 
   root.add(startGroup);
@@ -740,6 +746,13 @@ export function buildTrackMeshes(track, scene) {
   }
 
   return root;
+}
+
+export class TrackMesh {
+  constructor(track, scene = null) {
+    this.track = track;
+    this.group = buildTrackMeshes(track, scene);
+  }
 }
 
 export function flipFields(track) {

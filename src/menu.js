@@ -3,6 +3,7 @@
 
 import { CHANGELOG, CURRENT_VERSION } from './changelog.js';
 import { ScoreboardUI } from './scoreboard.js';
+import { PRESETS, applyPreset, rebuildShaders } from './quality.js';
 
 export class MenuManager {
   constructor(app) {
@@ -124,25 +125,15 @@ export class MenuManager {
     this.app.paused = false;
     this.currentView = null;
     this._hideAllDialogs();
+    this._clearVeil();
   }
 
-  restartRace() {
-    this.resume();
-    if (this.app.race) {
-      this.app.race._buildGrid();
-      this.app.race.state = 'countdown';
-      this.app.race.countdownTime = 4.0;
-      this.app.race.elapsedTime = 0.0;
-      this.app.playerRacer = this.app.race.playerRacer;
-    }
-    if (this.app.hud) {
-      this.app.hud.currentLapTime = 0.0;
-      this.app.hud.totalRaceTime = 0.0;
-      this.app.hud.score = 0;
-      this.app.hud.currentLap = 1;
-    }
-    if (this.app.music) {
-      this.app.music.stop();
+  _clearVeil() {
+    if (typeof document === 'undefined') return;
+    const veil = document.getElementById('veil');
+    if (veil) {
+      veil.classList.remove('visible');
+      veil.style.opacity = '0';
     }
   }
 
@@ -155,6 +146,7 @@ export class MenuManager {
 
   restartRace() {
     this.resume();
+    this._clearVeil();
     if (this.app.race) {
       this.app.race._buildGrid();
       this.app.race.state = 'countdown';
@@ -191,11 +183,19 @@ export class MenuManager {
   _renderPauseMenu() {
     if (!this.elMenu) return;
     this._hideAllDialogs();
+    this._clearVeil();
     this.elMenu.classList.remove('hidden');
     this.currentView = 'pause';
 
+    const curDiff = this.app.settings ? this.app.settings.get('difficulty') : 'normal';
+
     this.elMenu.innerHTML = `
       <div class="dialog-card">
+        <div class="brand-wordmark" data-level="${curDiff}" style="display: flex; justify-content: center; margin-bottom: 6px;">
+          <svg width="220" height="28" viewBox="0 0 220 28" fill="none">
+            <text x="110" y="21" text-anchor="middle" font-family="'Orbitron', sans-serif" font-weight="900" font-size="20" fill="#ffffff" letter-spacing="4">NEED<tspan fill="#00d2ff">4</tspan>SPACE</text>
+          </svg>
+        </div>
         <h2 class="dialog-title">SYSTEM PAUSED</h2>
         <div class="menu-list">
           <button class="btn btn-primary" id="btn-resume">RESUME RACE</button>
@@ -255,22 +255,67 @@ export class MenuManager {
   showOptions() {
     if (!this.elSettings) return;
     this._hideAllDialogs();
+    this._clearVeil();
     this.elSettings.classList.remove('hidden');
     this.currentView = 'settings';
 
     const s = this.app.settings ? this.app.settings.data : {};
+    const curDiff = s.difficulty || 'normal';
+    const currentPreset = s.preset || 'high';
 
     this.elSettings.innerHTML = `
-      <div class="dialog-card">
+      <div class="dialog-card" style="max-height: 85vh; overflow-y: auto;">
+        <div class="brand-wordmark" data-level="${curDiff}" style="display: flex; justify-content: center; margin-bottom: 4px;">
+          <svg width="220" height="28" viewBox="0 0 220 28" fill="none">
+            <text x="110" y="21" text-anchor="middle" font-family="'Orbitron', sans-serif" font-weight="900" font-size="20" fill="#ffffff" letter-spacing="4">NEED<tspan fill="#00d2ff">4</tspan>SPACE</text>
+          </svg>
+        </div>
         <h2 class="dialog-title">SYSTEM CONFIGURATION</h2>
         <div class="settings-form">
           <div class="form-row">
             <label>GRAPHICS PRESET</label>
+            <div class="btn-group preset-group">
+              <button class="btn-opt ${currentPreset === 'low' ? 'active' : ''}" data-preset="low">LOW</button>
+              <button class="btn-opt ${currentPreset === 'balanced' ? 'active' : ''}" data-preset="balanced">BALANCED</button>
+              <button class="btn-opt ${currentPreset === 'high' ? 'active' : ''}" data-preset="high">HIGH</button>
+              <button class="btn-opt ${currentPreset === 'custom' ? 'active' : ''}" data-preset="custom">CUSTOM</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>AMBIENT OCCLUSION (GTAO)</label>
             <div class="btn-group">
-              <button class="btn-opt ${s.quality === 'low' ? 'active' : ''}" data-q="low">LOW</button>
-              <button class="btn-opt ${s.quality === 'medium' ? 'active' : ''}" data-q="medium">MED</button>
-              <button class="btn-opt ${s.quality === 'high' ? 'active' : ''}" data-q="high">HIGH</button>
-              <button class="btn-opt ${s.quality === 'ultra' ? 'active' : ''}" data-q="ultra">ULTRA</button>
+              <button class="btn-opt ${s.enableAO ? 'active' : ''}" data-toggle="enableAO">${s.enableAO ? 'ON' : 'OFF'}</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>DECK REFLECTIONS (SSR)</label>
+            <div class="btn-group">
+              <button class="btn-opt ${s.enableSSR ? 'active' : ''}" data-toggle="enableSSR">${s.enableSSR ? 'ON' : 'OFF'}</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>BLOOM & LIGHT SHAFTS</label>
+            <div class="btn-group">
+              <button class="btn-opt ${s.enableBloom ? 'active' : ''}" data-toggle="enableBloom">${s.enableBloom ? 'ON' : 'OFF'}</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>CANYON AO STABILIZATION</label>
+            <div class="btn-group">
+              <button class="btn-opt ${s.canyonAO ? 'active' : ''}" data-toggle="canyonAO">${s.canyonAO ? 'ON' : 'OFF'}</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>ENGINE HEAT SHIMMER</label>
+            <div class="btn-group">
+              <button class="btn-opt ${s.engineHeat ? 'active' : ''}" data-toggle="engineHeat">${s.engineHeat ? 'ON' : 'OFF'}</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>EXHAUST TRAILS</label>
+            <div class="btn-group">
+              <button class="btn-opt ${s.engineTrails === 'ribbon' ? 'active' : ''}" data-trail="ribbon">RIBBON</button>
+              <button class="btn-opt ${s.engineTrails === 'puffs' ? 'active' : ''}" data-trail="puffs">PUFFS</button>
             </div>
           </div>
           <div class="form-row">
@@ -316,13 +361,38 @@ export class MenuManager {
 
     this._renderHints(this.elSettings);
 
-    // Bind graphics buttons
+    // Bind preset buttons
     if (this.elSettings.querySelectorAll) {
-      this.elSettings.querySelectorAll('[data-q]').forEach(btn => {
+      this.elSettings.querySelectorAll('[data-preset]').forEach(btn => {
         btn.addEventListener('click', (e) => {
-          const q = e.target.dataset.q;
+          const p = e.target.dataset.preset;
+          if (p !== 'custom' && this.app.settings) {
+            applyPreset(p, this.app.settings, this.app);
+          }
+          this.showOptions();
+        });
+      });
+
+      // Bind individual feature toggles
+      this.elSettings.querySelectorAll('[data-toggle]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const key = e.target.dataset.toggle;
           if (this.app.settings) {
-            this.app.settings.set('quality', q);
+            const cur = !!this.app.settings.get(key);
+            this.app.settings.set(key, !cur);
+            this.app.settings.apply(this.app);
+            rebuildShaders(this.app);
+          }
+          this.showOptions();
+        });
+      });
+
+      // Bind trail buttons
+      this.elSettings.querySelectorAll('[data-trail]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const mode = e.target.dataset.trail;
+          if (this.app.settings) {
+            this.app.settings.set('engineTrails', mode);
             this.app.settings.apply(this.app);
           }
           this.showOptions();
@@ -338,6 +408,7 @@ export class MenuManager {
           const cur = !!this.app.settings.get('laptopMode');
           this.app.settings.set('laptopMode', !cur);
           this.app.settings.apply(this.app);
+          rebuildShaders(this.app);
         }
         this.showOptions();
       });

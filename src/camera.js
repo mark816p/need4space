@@ -40,6 +40,8 @@ export class CameraController {
     this._vRight = new THREE.Vector3();
     this._vUpTmp = new THREE.Vector3();
     this._vOffset = new THREE.Vector3();
+    this._fCam = {};
+    this._vDeckCam = new THREE.Vector3();
 
     // Flyby spectator state
     this.flybyGantryS = 0;
@@ -117,6 +119,19 @@ export class CameraController {
         .addScaledVector(up, shakeY);
 
       this.camera.position.lerp(this._vChasePos, 0.24);
+
+      // Deck-aware camera clamping (§J.2): prevent camera from dipping below the road on rolling straights or crests
+      if (track && track.frame) {
+        const sCam = track.wrap ? track.wrap(racer.s - dist) : ((racer.s - dist + track.length) % track.length);
+        track.frame(sCam, this._fCam);
+        this._vDeckCam.subVectors(this.camera.position, this._fCam.pos);
+        const clearance = this._vDeckCam.dot(this._fCam.U);
+        const minClearance = 1.8;
+        if (clearance < minClearance) {
+          this.camera.position.addScaledVector(this._fCam.U, minClearance - clearance);
+        }
+      }
+
       if (this.rollFollow >= 1.0) {
         this.camera.up.lerp(up, 0.35).normalize();
       } else {

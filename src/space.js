@@ -49,13 +49,14 @@ export class SpaceWorld {
     // Shadow cascades
     this._initLights();
 
-    // Celestial Bodies in sky scene
+    // Celestial Bodies in sky scene & Space Ring Station
     this._initBackdrop();
 
     if (this.track) {
       this.attachTrack(this.track);
     }
 
+    this.time = 0;
     this.ready = true;
   }
 
@@ -248,6 +249,134 @@ export class SpaceWorld {
     skySun.position.copy(this.sunDir).multiplyScalar(200000);
     this.sky.add(skySun);
     this.sky.add(new THREE.AmbientLight(0x0c1424, 0.4));
+
+    // 5. Procedural Space Ring Station in orbit
+    this._initSpaceStation();
+  }
+
+  _initSpaceStation() {
+    const stationDist = 72000;
+    const stationPos = new THREE.Vector3(0.58, 0.28, -0.62).normalize().multiplyScalar(stationDist);
+
+    this.stationGroup = new THREE.Group();
+    this.stationGroup.name = 'space_ring_station';
+    this.stationGroup.position.copy(stationPos);
+    this.stationGroup.lookAt(0, 0, 0);
+    this.stationGroup.rotateZ(0.35); // Gentle orbital inclination
+
+    const hullMat = new THREE.MeshStandardMaterial({
+      color: 0xd8dde4,
+      roughness: 0.38,
+      metalness: 0.72
+    });
+    const darkMat = new THREE.MeshStandardMaterial({
+      color: 0x1b222d,
+      roughness: 0.5,
+      metalness: 0.85
+    });
+
+    // 1. Central Docking Hub (cylinder + docking ports)
+    const hubGeom = new THREE.CylinderGeometry(420, 420, 1600, 24);
+    const hub = new THREE.Mesh(hubGeom, hullMat);
+    hub.rotation.x = Math.PI * 0.5;
+    this.stationGroup.add(hub);
+
+    const dockRingGeom = new THREE.TorusGeometry(540, 70, 16, 32);
+    const dockRing = new THREE.Mesh(dockRingGeom, darkMat);
+    this.stationGroup.add(dockRing);
+
+    // Communications Array (mast + parabolic dish)
+    const commMastGeom = new THREE.CylinderGeometry(18, 18, 850, 8);
+    const commMast = new THREE.Mesh(commMastGeom, darkMat);
+    commMast.position.set(0, 0, 1100);
+    commMast.rotation.x = Math.PI * 0.5;
+    this.stationGroup.add(commMast);
+
+    const dishGeom = new THREE.ConeGeometry(220, 75, 24, 1, true);
+    const dish = new THREE.Mesh(dishGeom, hullMat);
+    dish.position.set(0, 0, 1500);
+    dish.rotation.x = -Math.PI * 0.5;
+    this.stationGroup.add(dish);
+
+    // 2. Rotating Habitat Ring & 6 Structural Truss Spokes
+    this.stationRingGroup = new THREE.Group();
+    this.stationRingGroup.name = 'station_habitat_ring';
+
+    const ringRadius = 3200;
+    const spokeGeom = new THREE.CylinderGeometry(55, 55, ringRadius - 400, 8);
+
+    // Procedural observation window texture
+    let windowTex = null;
+    if (typeof document !== 'undefined') {
+      const wCanvas = document.createElement('canvas');
+      wCanvas.width = 1024;
+      wCanvas.height = 128;
+      const wctx = wCanvas.getContext('2d');
+      wctx.fillStyle = '#18202c';
+      wctx.fillRect(0, 0, 1024, 128);
+
+      // Rows of glowing observation windows
+      for (let x = 12; x < 1024; x += 24) {
+        for (let y = 30; y < 100; y += 28) {
+          if (Math.random() > 0.15) {
+            const hue = Math.random() < 0.25 ? '#00d2ff' : (Math.random() < 0.6 ? '#fff4cc' : '#ffffff');
+            wctx.fillStyle = hue;
+            wctx.fillRect(x, y, 14, 16);
+          }
+        }
+      }
+      windowTex = new THREE.CanvasTexture(wCanvas);
+      windowTex.wrapS = THREE.RepeatWrapping;
+      windowTex.wrapT = THREE.ClampToEdgeWrapping;
+      windowTex.repeat.set(12, 1);
+    } else {
+      const d = new Uint8Array(16 * 16 * 4).fill(220);
+      windowTex = new THREE.DataTexture(d, 16, 16, THREE.RGBAFormat);
+      windowTex.needsUpdate = true;
+    }
+
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0xccd4df,
+      roughness: 0.35,
+      metalness: 0.65,
+      map: windowTex || undefined,
+      emissive: 0xffffff,
+      emissiveMap: windowTex || undefined,
+      emissiveIntensity: 0.65
+    });
+
+    const ringGeom = new THREE.TorusGeometry(ringRadius, 210, 24, 72);
+    const habitatRing = new THREE.Mesh(ringGeom, ringMat);
+    this.stationRingGroup.add(habitatRing);
+
+    // 6 Structural Truss Spokes connecting Hub to Habitat Ring
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3; // 60 deg
+      const spoke = new THREE.Mesh(spokeGeom, darkMat);
+      const halfR = (ringRadius + 400) * 0.5;
+      spoke.position.set(Math.cos(angle) * halfR, Math.sin(angle) * halfR, 0);
+      spoke.rotation.z = angle - Math.PI * 0.5;
+      this.stationRingGroup.add(spoke);
+    }
+
+    // Hazard Strobes (flashing red beacons on outer rim)
+    this.stationStrobes = [];
+    const strobeGeom = new THREE.SphereGeometry(30, 8, 8);
+    const strobeMat = new THREE.MeshBasicMaterial({
+      color: 0xff2222,
+      toneMapped: false
+    });
+
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const strobe = new THREE.Mesh(strobeGeom, strobeMat.clone());
+      strobe.position.set(Math.cos(angle) * (ringRadius + 220), Math.sin(angle) * (ringRadius + 220), 0);
+      this.stationRingGroup.add(strobe);
+      this.stationStrobes.push(strobe);
+    }
+
+    this.stationGroup.add(this.stationRingGroup);
+    this.sky.add(this.stationGroup);
   }
 
   follow(targetPos, camera) {
@@ -259,9 +388,20 @@ export class SpaceWorld {
   }
 
   update(dt, camera, shipPos, s = 0, renderer = null) {
+    this.time += dt;
+
     // Update live boiling sun granulation
     if (this.sunMat && this.sunMat.uniforms.uTime) {
       this.sunMat.uniforms.uTime.value += dt;
+    }
+
+    // Animate rotating space station habitat ring & hazard strobes
+    if (this.stationRingGroup) {
+      this.stationRingGroup.rotation.z += dt * 0.04;
+      const strobeOn = Math.sin(this.time * 5.5) > 0.3;
+      for (let i = 0; i < this.stationStrobes.length; i++) {
+        this.stationStrobes[i].visible = strobeOn;
+      }
     }
 
     // Sky camera tracks player camera orientation but stays centered at origin

@@ -3,6 +3,23 @@
 
 export const CHANGELOG = [
   {
+    version: '1.2.0',
+    title: 'Graphics Presets & Visual Polish',
+    date: '2026-10-18',
+    notes: [
+      'Graphics Quality Presets: Low (Laptop mode: DPR 1.0, AO/SSR off), Balanced (DPR 1.25, AO on), and High (DPR 1.5, full AO/SSR/Bloom) with Custom override detection',
+      'Zero-hitch preset switching: asynchronous mid-session shader rebuilds that compile scene and post-processing materials without race hitches',
+      'Derelict Colossus lighting overhaul: baked fixtures with emissive lenses visible up to 1.8 km, structural hangers, and wall lights strictly anchored to standing frames',
+      'Procedural Space Ring Station in orbit: central docking hub, comms array, 6 structural truss spokes, and rotating habitat ring with illuminated windows and hazard strobes',
+      'Canyon AO stabilization and terrain masking: desert dunes tagged noAO to eliminate horizon ghosting, stabilized AO on steep canyon walls',
+      'Engine heat shimmer pass: screen-space refractive distortion ripple behind active ship exhaust nozzles',
+      'Deck-aware chase camera: track frame sampling and elevation clamping prevents camera from dipping below the road on crests and rolling straights',
+      'Engine trail puff mode: expanding billboard discs with non-linear soft alpha falloff',
+      'Softened rival taillights: warm tinted glow sprites and calibrated point-light punch in dark chambers',
+      'Eliminated z-fighting on start line and lane divider lights via polygon offset'
+    ]
+  },
+  {
     version: '1.1.1',
     title: 'Global Scoreboard & Perf Campaign',
     date: '2026-10-18',

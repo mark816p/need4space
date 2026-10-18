@@ -27,6 +27,9 @@ export class TrackRacer {
     this.track = track;
     this.ship = ship;
     this.isPlayer = !!options.isPlayer;
+    if (this.ship) {
+      this.ship.isRival = !this.isPlayer;
+    }
     this.difficulty = options.difficulty || 'hard';
 
     // Ship handling characteristics

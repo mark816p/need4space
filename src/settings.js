@@ -1,10 +1,23 @@
 // src/settings.js — User settings management, graphics presets, and persistent storage
 // Why: Robust options model with localStorage persistence and instant runtime reconfiguration
+// "b3081c8 Graphics quality presets (Low = old Laptop mode, Balanced, High = defaults; a row changed by hand shows Custom)"
+
+import { PRESETS, detectPreset, PRESET_KEYS } from './quality.js';
 
 export const DEFAULT_SETTINGS = {
-  quality: 'high', // 'low' | 'medium' | 'high' | 'ultra'
+  preset: 'high', // 'low' | 'balanced' | 'high' | 'custom'
+  quality: 'high', // 'low' | 'balanced' | 'high' | 'custom'
   difficulty: 'easy', // Easy difficulty as default ('easy' | 'normal' | 'hard' | 'brutal')
   laptopMode: false, // Performance optimization for low-power or integrated GPUs
+  enableAO: true,
+  enableSSR: true,
+  enableBloom: true,
+  enableLook: true,
+  canyonAO: true,
+  heatShimmer: true,
+  engineHeat: true,
+  engineTrails: 'ribbon', // 'ribbon' | 'puffs'
+  derelictLamps: true,
   fov: 65,
   airPitch: true, // Nose control in the air (PITCH_AIR = 14 m/s²)
   drift: false, // Drift off by default (code dormant behind TrackRacer.drifting)
@@ -18,8 +31,7 @@ export const DEFAULT_SETTINGS = {
   iceDust: true,
   aurora: true,
   iceStorm: true,
-  iceGeysers: true,
-  canyonAO: true
+  iceGeysers: true
 };
 
 const STORAGE_KEY = 'need4space_settings';
@@ -41,6 +53,8 @@ export class SettingsManager {
     } catch (e) {
       console.warn('[Settings] Failed to read localStorage:', e);
     }
+    // Synchronize detected preset
+    this.data.preset = detectPreset(this.data);
   }
 
   save() {
@@ -58,7 +72,15 @@ export class SettingsManager {
 
   set(key, value) {
     this.data[key] = value;
+    // If an individual visual key was changed by hand, update preset detection
+    if (PRESET_KEYS.includes(key)) {
+      this.data.preset = detectPreset(this.data);
+    }
     this.save();
+  }
+
+  has(key) {
+    return this.data[key] !== undefined;
   }
 
   apply(app) {
@@ -72,44 +94,28 @@ export class SettingsManager {
       if (app.audio.musicGain) app.audio.musicGain.gain.value = this.data.volumeMusic;
     }
 
-    // 2. Graphics Quality Presets & Laptop Mode
+    // 2. Graphics Quality Presets & Dynamic Resolution
     const isLaptop = !!this.data.laptopMode;
-    const q = this.data.quality;
+    const presetId = this.data.preset || 'high';
+    const preset = PRESETS[presetId] || PRESETS.high;
 
     if (app.renderer) {
       let dpr = 1.0;
-      if (isLaptop) {
+      if (isLaptop || presetId === 'low') {
         dpr = 1.0;
       } else {
         const winDpr = (typeof window !== 'undefined' && window.devicePixelRatio) ? window.devicePixelRatio : 1;
-        dpr = (q === 'ultra') ? 2.0 : (q === 'high' ? Math.min(winDpr, 1.5) : 1.0);
+        dpr = Math.min(winDpr, preset.dpr || 1.5);
       }
       app.renderer.setPixelRatio(dpr);
     }
 
     if (app.post) {
-      if (isLaptop) {
-        // Laptop Mode: downscale and disable heavy passes (SSR, GTAO), keep lightweight bloom and look composite
-        app.post.enabled = true;
-        app.post.enableAO = false;
-        app.post.enableSSR = false;
-        app.post.enableBloom = true;
-        app.post.enableLook = true;
-      } else if (q === 'low') {
-        app.post.enabled = false;
-      } else if (q === 'medium') {
-        app.post.enabled = true;
-        app.post.enableAO = true;
-        app.post.enableSSR = false;
-        app.post.enableBloom = true;
-        app.post.enableLook = true;
-      } else if (q === 'high' || q === 'ultra') {
-        app.post.enabled = true;
-        app.post.enableAO = true;
-        app.post.enableSSR = true;
-        app.post.enableBloom = true;
-        app.post.enableLook = true;
-      }
+      app.post.enabled = true;
+      app.post.enableAO = this.data.enableAO !== undefined ? this.data.enableAO : (preset.enableAO && !isLaptop);
+      app.post.enableSSR = this.data.enableSSR !== undefined ? this.data.enableSSR : (preset.enableSSR && !isLaptop);
+      app.post.enableBloom = this.data.enableBloom !== undefined ? this.data.enableBloom : preset.enableBloom;
+      app.post.enableLook = this.data.enableLook !== undefined ? this.data.enableLook : preset.enableLook;
     }
 
     // 3. Camera FOV
@@ -118,3 +124,5 @@ export class SettingsManager {
     }
   }
 }
+
+export const Settings = SettingsManager;

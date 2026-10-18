@@ -50,6 +50,14 @@ export class DesertWorld {
 
     // 3. Sea of Dunes, Transverse Ridges, Skirted Tiles & Combed Ripples
     this.dunes = new DuneSea(this.scene, track);
+    if (this.dunes && this.dunes.group) {
+      this.dunes.group.traverse(obj => {
+        if (obj.isMesh) {
+          obj.userData.noAO = true;
+          this.noAO.push(obj);
+        }
+      });
+    }
 
     // 4. Layered Sandstone Geology (Canyon Gorge, Mesas, Buttes, Great Arches)
     this.sandstone = new SandstoneGeology(this.scene, track);
@@ -59,6 +67,9 @@ export class DesertWorld {
 
     // 6. GPU Simoom Wind (Sand Veils, Dust Devils, Skimming Wakes)
     this.simoom = new SimoomWind(this.scene, track);
+
+    // Warm tinting on gantries in desert dust to prevent pitch-black silhouettes
+    this._tintDesertGantries();
 
     this.time = 0;
     this.ready = true;
@@ -94,6 +105,23 @@ export class DesertWorld {
     skySun.position.copy(this.sunDir).multiplyScalar(200000);
     this.sky.add(skySun);
     this.sky.add(new THREE.AmbientLight(0x402018, 0.7));
+  }
+
+  _tintDesertGantries() {
+    if (!this.scene) return;
+    this.scene.traverse((obj) => {
+      if (obj.name === 'gantries' || (obj.parent && obj.parent.name === 'gantries')) {
+        obj.traverse((child) => {
+          if (child.isMesh && child.material) {
+            if (child.material.color && child.material.color.getHex() === 0x1c2432) {
+              child.material = child.material.clone();
+              child.material.color.setHex(0x382e28);
+              child.material.roughness = 0.65;
+            }
+          }
+        });
+      }
+    });
   }
 
   follow(targetPos) {

@@ -28,6 +28,7 @@ export class DerelictWreck {
     this.reactorMeshes = [];
     this.reactorLights = [];
     this.holdBeacons = [];
+    this.derelictLamps = [];
     this.time = 0;
     this.corePositions = [];
 
@@ -42,6 +43,7 @@ export class DerelictWreck {
     this._buildSensorBoom();
     this._buildOrangeGate();
     this._buildGraveyard();
+    this._buildDerelictLamps();
     this._buildSparks();
 
     this.scene.add(this.group);
@@ -591,6 +593,99 @@ export class DerelictWreck {
     this.group.add(yardGroup);
   }
 
+  _buildDerelictLamps() {
+    const lampGroup = new THREE.Group();
+    lampGroup.name = 'derelict_lamps';
+
+    const hangerGeom = new THREE.BoxGeometry(0.8, 5.0, 0.8);
+    const housingGeom = new THREE.BoxGeometry(2.4, 1.4, 1.8);
+    const lensGeom = new THREE.PlaneGeometry(2.0, 1.2);
+
+    const hangerMat = this.innerMat;
+    const housingMat = this.hullMat;
+    const lensMat = new THREE.MeshBasicMaterial({
+      color: 0xfff4dd,
+      side: THREE.DoubleSide,
+      toneMapped: false
+    });
+
+    // Positions strictly anchored to structural ribs & bulkheads across the 12 km Colossus
+    const lampStations = [
+      // Engine Bell entrance frames
+      { s: 13550, x: -24, y: 16, z: 0, rx: 0.3, ry: 0, rz: 0 },
+      { s: 13550, x: 24, y: 16, z: 0, rx: 0.3, ry: 0, rz: 0 },
+      { s: 14100, x: -28, y: 22, z: 0, rx: 0.2, ry: 0, rz: 0 },
+      { s: 14100, x: 28, y: 22, z: 0, rx: 0.2, ry: 0, rz: 0 },
+      // Reactor Hall overhead truss mounts
+      { s: 15100, x: 0, y: 32, z: 0, rx: Math.PI * 0.5, ry: 0, rz: 0 },
+      { s: 15600, x: 0, y: 32, z: 0, rx: Math.PI * 0.5, ry: 0, rz: 0 },
+      { s: 16100, x: 0, y: 32, z: 0, rx: Math.PI * 0.5, ry: 0, rz: 0 },
+      // The Break fracture edge mounts
+      { s: 16800, x: -22, y: 18, z: 0, rx: 0.4, ry: 0.2, rz: 0 },
+      { s: 17400, x: 22, y: 18, z: 0, rx: 0.4, ry: -0.2, rz: 0 },
+      // Upside-Down Hold catwalk mounts
+      { s: 18200, x: -26, y: -16, z: 0, rx: -0.3, ry: 0, rz: 0 },
+      { s: 18200, x: 26, y: -16, z: 0, rx: -0.3, ry: 0, rz: 0 },
+      { s: 18900, x: -26, y: -16, z: 0, rx: -0.3, ry: 0, rz: 0 },
+      { s: 18900, x: 26, y: -16, z: 0, rx: -0.3, ry: 0, rz: 0 },
+      // Forward Hangar rack tower mounts
+      { s: 20000, x: -30, y: 24, z: 0, rx: 0.5, ry: 0, rz: 0 },
+      { s: 20000, x: 30, y: 24, z: 0, rx: 0.5, ry: 0, rz: 0 },
+      { s: 20700, x: -30, y: 24, z: 0, rx: 0.5, ry: 0, rz: 0 },
+      { s: 20700, x: 30, y: 24, z: 0, rx: 0.5, ry: 0, rz: 0 },
+      // Trench Run wall mounts
+      { s: 21800, x: -27, y: 14, z: 0, rx: 0.2, ry: 0, rz: 0 },
+      { s: 21800, x: 27, y: 14, z: 0, rx: 0.2, ry: 0, rz: 0 },
+      { s: 22600, x: -27, y: 14, z: 0, rx: 0.2, ry: 0, rz: 0 },
+      { s: 22600, x: 27, y: 14, z: 0, rx: 0.2, ry: 0, rz: 0 }
+    ];
+
+    for (let i = 0; i < lampStations.length; i++) {
+      const ls = lampStations[i];
+      this.track.frame(ls.s, _f);
+
+      const lamp = new THREE.Group();
+      lamp.name = `derelict_lamp_${i}`;
+
+      // Structural hanger arm anchored to standing bulkhead/rib frame (Zero light floating in the void!)
+      const hanger = new THREE.Mesh(hangerGeom, hangerMat);
+      hanger.position.set(0, 2.5, 0);
+      lamp.add(hanger);
+
+      // Industrial fixture housing
+      const housing = new THREE.Mesh(housingGeom, housingMat);
+      housing.position.set(0, 0, 0);
+      lamp.add(housing);
+
+      // High-intensity emissive lens visible from afar up to 1.8 km
+      const lens = new THREE.Mesh(lensGeom, lensMat);
+      lens.position.set(0, -0.6, 0.92);
+      lamp.add(lens);
+
+      // Local baked point light
+      const pLight = new THREE.PointLight(0xffeedd, 2.4, 95.0, 1.8);
+      pLight.position.set(0, -0.8, 1.2);
+      lamp.add(pLight);
+
+      _m.makeBasis(_f.R, _f.U, _f.T);
+      lamp.quaternion.setFromRotationMatrix(_m);
+      _pos.copy(_f.pos).addScaledVector(_f.R, ls.x).addScaledVector(_f.U, ls.y).addScaledVector(_f.T, ls.z);
+      lamp.position.copy(_pos);
+
+      lampGroup.add(lamp);
+
+      this.derelictLamps.push({
+        group: lamp,
+        lens,
+        light: pLight,
+        worldPos: _pos.clone(),
+        maxDist: 1800.0 // Lenses visible up to 1.8 km
+      });
+    }
+
+    this.group.add(lampGroup);
+  }
+
   _buildSparks() {
     const sparkCount = 250;
     const geom = new THREE.BufferGeometry();
@@ -684,6 +779,18 @@ export class DerelictWreck {
         }
       }
       attr.needsUpdate = true;
+    }
+
+    // 6. Update derelict lamps: lenses visible up to 1.8 km, point lights local
+    if (camera) {
+      const camPos = camera.position;
+      for (let i = 0; i < this.derelictLamps.length; i++) {
+        const dl = this.derelictLamps[i];
+        const distSq = dl.worldPos.distanceToSquared(camPos);
+        const inLensRange = distSq < (1800.0 * 1800.0); // 1.8 km
+        dl.lens.visible = inLensRange;
+        dl.light.visible = distSq < (250.0 * 250.0);
+      }
     }
   }
 }

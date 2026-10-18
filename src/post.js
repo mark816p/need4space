@@ -392,6 +392,8 @@ const LookCompositeShader = {
     waterSpray: { value: 0.0 },
     speedRatio: { value: 0.0 },
     heatShimmer: { value: 0.0 },
+    canyonAO: { value: 1.0 },
+    engineHeat: { value: 1.0 },
     enableShafts: { value: 1.0 },
     enableAO: { value: 1.0 },
     enableSSR: { value: 1.0 },
@@ -422,6 +424,8 @@ const LookCompositeShader = {
     uniform float waterSpray;
     uniform float speedRatio;
     uniform float heatShimmer;
+    uniform float canyonAO;
+    uniform float engineHeat;
     uniform float enableShafts;
     uniform float enableAO;
     uniform float enableSSR;
@@ -454,6 +458,13 @@ const LookCompositeShader = {
         sampleUv.y += wave * 0.0035 * heatShimmer * horizonBand;
       }
 
+      // Engine Heat Shimmer Pass (refractive distortion ripple behind active exhaust nozzles)
+      if (engineHeat > 0.5) {
+        float exhaustZone = smoothstep(0.24, 0.0, abs(vUv.x - 0.5)) * smoothstep(0.28, 0.44, vUv.y) * (1.0 - smoothstep(0.48, 0.65, vUv.y));
+        float engineRipple = sin(vUv.y * 110.0 + time * 28.0) * cos(vUv.x * 90.0 + time * 20.0);
+        sampleUv += vec2(engineRipple * 0.0045 * engineHeat * exhaustZone);
+      }
+
       if (waterSpray > 0.005) {
         vec2 dropUv = vUv * vec2(16.0, 9.0) + dir * (speedRatio * 1.8 * waterSpray);
         vec2 id = floor(dropUv);
@@ -483,6 +494,9 @@ const LookCompositeShader = {
       // 2. Ambient Occlusion Composite
       if (enableAO > 0.5) {
         float ao = texture2D(tAO, vUv).r;
+        if (canyonAO > 0.5 && ao < 0.5) {
+          ao = mix(ao, clamp(ao * 1.6 + 0.2, 0.0, 1.0), 0.55);
+        }
         col *= ao;
       }
 
@@ -547,6 +561,8 @@ export class PostPipeline {
     this.enableBloom = true; // Key 4: Bloom
     this.enableLook = true; // Key 5: Film Optics (Tone mapping, grain, chroma, vignette)
     this.enableShafts = true;
+    this.canyonAO = true;
+    this.engineHeat = true;
     this.waterSpray = 0.0;
 
     // GTAO material caching and occluders
@@ -742,7 +758,7 @@ export class PostPipeline {
     this._hiddenAOObjects = [];
     if (!this.scene) return;
     this.scene.traverse((obj) => {
-      if (obj.isPoints || obj.isLine || obj.isLineSegments) {
+      if (obj.isPoints || obj.isLine || obj.isLineSegments || (obj.userData && obj.userData.noAO)) {
         if (obj.visible) {
           obj.visible = false;
           this._hiddenAOObjects.push(obj);
@@ -868,6 +884,8 @@ export class PostPipeline {
     uComp.waterSpray.value = this.waterSpray;
     uComp.speedRatio.value = Math.min(1.5, (telemetry.speed || 0) / 250.0);
     uComp.heatShimmer.value = (telemetry.heat || (telemetry.world && telemetry.world.heat)) ? 1.0 : 0.0;
+    uComp.canyonAO.value = (this.canyonAO !== false && telemetry.canyonAO !== false) ? 1.0 : 0.0;
+    uComp.engineHeat.value = (this.engineHeat !== false && telemetry.engineHeat !== false) ? 1.0 : 0.0;
     uComp.enableShafts.value = this.enableShafts ? 1.0 : 0.0;
 
     uComp.enableAO.value = this.enableAO ? 1.0 : 0.0;
@@ -893,6 +911,12 @@ export class PostPipeline {
       this.fsTriangle.mesh.material = m;
       return renderer.compileAsync(this.fsTriangle.scene, this.fsTriangle.camera);
     }));
+  }
+
+  async rebuildShaders(renderer = null) {
+    const rend = renderer || this.renderer;
+    this._setupMaterials();
+    return this.compileAsync(rend);
   }
 
   dispose() {

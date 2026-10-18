@@ -21,7 +21,7 @@
 - [x] P7 — Forest Cave & Derelict Colossus (cave.js, 2km hollow hill swept tube, underground lake, slalom columns, skull flips, 26.6km space circuit, 12km Colossus, upside-down hold, rack towers, barbette turrets, graveyards, HUD drift/boost overflow)
 - [x] P8 — Playtest Tuning, License, v1.1 "Four Worlds" (difficulty tiers & player perks, Four Worlds AI median lap-time ordering, track geometry polish across all 4 circuits, v1.1 What's New modal, interactive menu hints, license & copyright)
 - [x] P9 — Global Scoreboard & Perf Campaign (dual-mode Local JSON / GitHub REST API store with HTTP 409 conflict recovery, 16 leaderboards across 4 circuits x 4 difficulties, zero race-loop overhead polling, pilot name persistence, GTAO normal material caching & occluder isolation, Web Worker Pool procedural bakes, difficulty SVG badges and brand wordmark)
-- [ ] P10 — v1.2 Global Scoreboard & Graphics Presets
+- [x] P10 — v1.2 Global Scoreboard & Graphics Presets (quality presets Low/Balanced/High with Custom override detection, mid-session zero-hitch async shader rebuilds, derelict lighting with 1.8km lenses and frame-anchored hangers, procedural space ring station with 6 truss spokes and rotating habitat ring, canyon AO stabilization & dunes noAO masking, engine heat shimmer pass, deck-aware chase camera clamping, trail puff mode with soft expanding billboard discs, softened rival taillights in dark, and polygon offset for zero z-fighting)
 - [ ] P11 — v1.2.5 The Broken Giant, Comet R1, Showroom, Ocean Planet
 - [ ] P12 — Ocean Polish, Airbrake Charge, Anvil H1, Liveries
 - [ ] P13 — Damage, Mixed Fleet, Aces, The Slam (v1.8.0 - v1.11.1)
