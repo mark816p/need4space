@@ -4,6 +4,7 @@
 import { CHANGELOG, CURRENT_VERSION } from './changelog.js';
 import { ScoreboardUI } from './scoreboard.js';
 import { PRESETS, applyPreset, rebuildShaders } from './quality.js';
+import { openShowroom } from './showroom.js';
 
 export class MenuManager {
   constructor(app) {
@@ -200,6 +201,7 @@ export class MenuManager {
         <div class="menu-list">
           <button class="btn btn-primary" id="btn-resume">RESUME RACE</button>
           <button class="btn" id="btn-restart">RESTART CIRCUIT</button>
+          <button class="btn" id="btn-showroom">SHIP SHOWROOM</button>
           <button class="btn" id="btn-circuits">SELECT CIRCUIT</button>
           <button class="btn" id="btn-scoreboard">GLOBAL SCOREBOARD</button>
           <button class="btn" id="btn-options">OPTIONS</button>
@@ -212,11 +214,18 @@ export class MenuManager {
     this._renderHints(this.elMenu);
     document.getElementById('btn-resume')?.addEventListener('click', () => this.resume());
     document.getElementById('btn-restart')?.addEventListener('click', () => this.restartRace());
+    document.getElementById('btn-showroom')?.addEventListener('click', () => this.showShowroom());
     document.getElementById('btn-circuits')?.addEventListener('click', () => this.showCircuits());
     document.getElementById('btn-scoreboard')?.addEventListener('click', () => this.showScoreboard());
     document.getElementById('btn-options')?.addEventListener('click', () => this.showOptions());
     document.getElementById('btn-whats-new')?.addEventListener('click', () => this.showWhatsNew());
     document.getElementById('btn-changelog')?.addEventListener('click', () => this.showChangelog());
+  }
+
+  showShowroom() {
+    this._hideAllDialogs();
+    this.currentView = 'showroom';
+    openShowroom(this.app);
   }
 
   showWhatsNew() {
@@ -527,6 +536,14 @@ export class MenuManager {
             </div>
             <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">Arid wasteland under low WNW sunset. Threads a hollow fallen skyscraper, layered sandstone gorge, two chasm jumps, and a towering sandstorm.</p>
             <button class="btn btn-primary" data-circuit="desert" style="width: 100%; border-color: #f59e0b;">${curCircuit === 'desert' ? 'CURRENT CIRCUIT' : 'ENGAGE DESERT'}</button>
+          </div>
+          <div class="circuit-card ${curCircuit === 'ocean' ? 'active' : ''}" style="margin-bottom: 16px; padding: 14px; background: rgba(0, 229, 255, 0.08); border: 1px solid #00e5ff; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <span style="font-family: Orbitron, sans-serif; font-weight: 700; color: #fff; font-size: 16px;">THE DROWNED WORLD</span>
+              <span style="font-family: Rajdhani, sans-serif; color: #00e5ff; font-weight: 700;">15.2 KM</span>
+            </div>
+            <p style="font-size: 13px; color: #8fa3b8; margin: 0 0 10px 0;">Storm-lashed night sea under a colossal moon. Low causeway over swell, rock arches, viaduct jump, lighthouse island banked turn, 520m dive spiralling The Keeper colossus, sunken Atlantis city run, and wave breach barrel roll.</p>
+            <button class="btn btn-primary" data-circuit="ocean" style="width: 100%; border-color: #00e5ff;">${curCircuit === 'ocean' ? 'CURRENT CIRCUIT' : 'ENGAGE OCEAN'}</button>
           </div>
         </div>
         <div class="dialog-actions">

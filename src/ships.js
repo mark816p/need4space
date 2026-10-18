@@ -68,6 +68,10 @@ export const HANDLING = {
   }
 };
 
+// Aliases
+HANDLING.comet = HANDLING.rocket;
+HANDLING.anvil = HANDLING.heavy;
+
 // Player assistance perks by difficulty level
 export const PERKS = {
   easy: {

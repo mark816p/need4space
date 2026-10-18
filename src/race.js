@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { damp, clamp } from './noise.js';
 import { TrackRacer } from './track.js';
 import { Ship } from './ship.js';
-import { buildFeatherS1, createShipMaterials } from './shipmodels.js';
+import { buildFeatherS1, buildCometR1, buildAnvilH1, createShipMaterials } from './shipmodels.js';
 import { PERKS } from './ships.js';
 
 // 9 Racing Teams (colors, liveries, engine colors)
@@ -243,13 +243,32 @@ export class Race {
       const mats = createShipMaterials(team.liveryColor, team.bodyColor);
       mats.engineGlow.color.setHex(team.engineColor);
 
-      const shipModel = buildFeatherS1(mats);
-      const ship = new Ship(shipModel);
+      // Support selected ship kind for player (feather, rocket, heavy)
+      const playerShipKind = this.options.shipKind || (this.options.settings ? this.options.settings.get('selectedShip') : 'feather');
+      let shipModel;
+      let shipKind = 'feather';
+      if (isPlayer) {
+        shipKind = playerShipKind;
+        if (playerShipKind === 'rocket' || playerShipKind === 'comet') {
+          shipModel = buildCometR1(mats);
+          shipKind = 'rocket';
+        } else if (playerShipKind === 'heavy' || playerShipKind === 'anvil') {
+          shipModel = buildAnvilH1(mats);
+          shipKind = 'heavy';
+        } else {
+          shipModel = buildFeatherS1(mats);
+          shipKind = 'feather';
+        }
+      } else {
+        shipModel = buildFeatherS1(mats);
+      }
+
+      const ship = new Ship(shipModel, { isRival: !isPlayer });
 
       const racer = new TrackRacer(this.track, ship, {
         isPlayer,
         difficulty: this.difficulty,
-        kind: 'feather',
+        kind: shipKind,
         airPitch: this.options.airPitch !== undefined ? this.options.airPitch : true
       });
 
@@ -327,6 +346,11 @@ export class Race {
       }
 
       racer.step(dt, input);
+
+      // Ships lit by the road deck (§P11.2)
+      if (racer.ship && racer.ship.setDeckLight && racer.frame) {
+        racer.ship.setDeckLight(racer.frame, this.track.deckColor || 0x222938, this.options.settings);
+      }
 
       // Lap tracking based on progress
       if (racer.progress >= 0) {

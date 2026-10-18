@@ -12,6 +12,7 @@ export function createShipMaterials(liveryColor = 0xe62233, bodyColor = 0xf0f2f5
     roughness: 0.35,
     metalness: 0.15
   });
+  body.name = 'ship_body';
 
   // Livery accent panels (default racing red)
   const livery = new THREE.MeshStandardMaterial({
@@ -19,6 +20,7 @@ export function createShipMaterials(liveryColor = 0xe62233, bodyColor = 0xf0f2f5
     roughness: 0.3,
     metalness: 0.25
   });
+  livery.name = 'ship_livery';
 
   // Dark titanium / carbon trim
   const dark = new THREE.MeshStandardMaterial({
@@ -26,6 +28,7 @@ export function createShipMaterials(liveryColor = 0xe62233, bodyColor = 0xf0f2f5
     roughness: 0.45,
     metalness: 0.85
   });
+  dark.name = 'ship_dark';
 
   // Smoked semi-transparent canopy glass
   const glass = new THREE.MeshPhysicalMaterial({
@@ -37,11 +40,13 @@ export function createShipMaterials(liveryColor = 0xe62233, bodyColor = 0xf0f2f5
     transmission: 0.7,
     ior: 1.5
   });
+  glass.name = 'ship_glass';
 
   // Glowing engine intake / exhaust nozzle ring
   const engineGlow = new THREE.MeshBasicMaterial({
     color: 0x00d2ff
   });
+  engineGlow.name = 'ship_engineGlow';
 
   return { body, livery, dark, glass, engineGlow };
 }
@@ -260,6 +265,8 @@ export function buildFeatherS1(mats = null) {
     rotors,
     plumes,
     nozzles,
+    engineGlowMat: mats.engineGlow,
+    engineColorHex: 0x00d2ff,
     tris: 320
   };
 }
@@ -276,43 +283,176 @@ export function buildCometR1(mats = null) {
   const length = 14.8;
   const bottom = -0.65;
 
-  // Broad titanium manta body
-  const mantaGeom = new THREE.CylinderGeometry(0.2, 4.2, 12.0, 4);
-  mantaGeom.rotateX(Math.PI * 0.5);
-  mantaGeom.scale(1.2, 0.25, 1.0);
+  // 1. Pointed Needle Nose & Titanium Manta Hull
+  // Nose tip at z = -7.4, swept out to span ±5.6 at z = 1.0, trailing edge to z = 4.8
+  const mantaGeom = new THREE.BufferGeometry();
+  const vManta = [
+    // 0: Pointed nose tip
+    0, 0.05, -7.4,
+    // 1, 2: Mid-chine forward
+    -1.8, 0.12, -2.5,
+    1.8, 0.12, -2.5,
+    // 3, 4: Wing tips (broad titanium manta)
+    -5.6, 0.18, 1.2,
+    5.6, 0.18, 1.2,
+    // 5, 6: Trailing edge outer
+    -4.2, 0.14, 4.2,
+    4.2, 0.14, 4.2,
+    // 7, 8: Engine root flanks
+    -1.7, 0.22, 5.2,
+    1.7, 0.22, 5.2,
+    // 9: Dorsal spine ridge
+    0, 0.85, -0.2,
+    // 10: Tail spine ridge
+    0, 0.65, 5.4,
+    // 11: Belly keel
+    0, -0.65, 0.5
+  ];
+
+  const iManta = [
+    // Nose facets
+    0, 9, 1,   0, 2, 9,
+    0, 1, 11,  0, 11, 2,
+    // Mid manta lifting surface
+    1, 9, 3,   9, 4, 2,   2, 4, 9,   1, 3, 9,
+    1, 11, 3,  2, 4, 11,
+    // Outer wing trailing
+    3, 9, 5,   4, 6, 9,
+    3, 5, 11,  4, 11, 6,
+    // Tail blend to engine root
+    5, 9, 7,   9, 10, 7,  9, 8, 10,  6, 8, 9,
+    5, 7, 11,  6, 11, 8,
+    7, 10, 8,  7, 8, 11
+  ];
+
+  mantaGeom.setAttribute('position', new THREE.Float32BufferAttribute(vManta, 3));
+  mantaGeom.setIndex(iManta);
+  mantaGeom.computeVertexNormals();
+
   const mantaMesh = new THREE.Mesh(mantaGeom, mats.body);
   mantaMesh.castShadow = true;
   visual.add(mantaMesh);
 
-  // Single huge rocket tail nozzle
-  const tailConeGeom = new THREE.CylinderGeometry(1.2, 1.6, 3.5, 18);
+  // 2. Twin Hover Sponsons underneath the flanks
+  const sponsonGeom = new THREE.BoxGeometry(1.2, 0.45, 6.5);
+  const spL = new THREE.Mesh(sponsonGeom, mats.dark);
+  spL.position.set(-2.8, -0.42, 0.8);
+  visual.add(spL);
+  const spR = new THREE.Mesh(sponsonGeom, mats.dark);
+  spR.position.set(2.8, -0.42, 0.8);
+  visual.add(spR);
+
+  // 3. Low Faired Aerodynamic Canopy
+  const canopyPivot = new THREE.Group();
+  canopyPivot.position.set(0, 0.45, -1.2);
+  const canopyGeom = new THREE.BufferGeometry();
+  const vCanopy = [
+    0, 0.35, -2.6,
+    -0.65, 0.28, 0.4,
+    0.65, 0.28, 0.4,
+    0, 0.48, -0.4,
+    0, 0.15, 1.6
+  ];
+  const iCanopy = [
+    0, 3, 1,  0, 2, 3,
+    1, 3, 4,  3, 2, 4
+  ];
+  canopyGeom.setAttribute('position', new THREE.Float32BufferAttribute(vCanopy, 3));
+  canopyGeom.setIndex(iCanopy);
+  canopyGeom.computeVertexNormals();
+  const canopyMesh = new THREE.Mesh(canopyGeom, mats.glass);
+  canopyPivot.add(canopyMesh);
+  visual.add(canopyPivot);
+
+  // 4. Side Heat Dispersion Exits (louvers with glowing thermal orange emitters)
+  const heatExitMat = new THREE.MeshBasicMaterial({ color: 0xff6600, toneMapped: false });
+  const heatLouverGeom = new THREE.BoxGeometry(0.35, 0.25, 1.8);
+  const heatL = new THREE.Mesh(heatLouverGeom, heatExitMat);
+  heatL.position.set(-2.2, 0.2, 2.8);
+  heatL.rotation.y = 0.2;
+  visual.add(heatL);
+  const heatR = new THREE.Mesh(heatLouverGeom, heatExitMat);
+  heatR.position.set(2.2, 0.2, 2.8);
+  heatR.rotation.y = -0.2;
+  visual.add(heatR);
+  const heatExits = [heatL, heatR];
+
+  // 5. Single Huge Rocket Tail Cone
+  const tailConeGeom = new THREE.CylinderGeometry(1.35, 1.75, 2.8, 24);
   tailConeGeom.rotateX(Math.PI * 0.5);
   const tailNozzle = new THREE.Mesh(tailConeGeom, mats.dark);
-  tailNozzle.position.set(0, 0.1, 5.6);
+  tailNozzle.position.set(0, 0.18, 5.8);
   visual.add(tailNozzle);
 
-  // 18-tooth petal nozzle / rotor
-  const petalRotor = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.15, 6, 18), mats.engineGlow);
-  petalRotor.position.set(0, 0.1, 7.3);
-  visual.add(petalRotor);
+  // Internal Nozzle Face (for dark engineFaces vs glow mode)
+  const nozzleFaceGeom = new THREE.CircleGeometry(1.28, 24);
+  const nozzleFaceMat = new THREE.MeshBasicMaterial({ color: 0x111620 });
+  const nozzleFace = new THREE.Mesh(nozzleFaceGeom, nozzleFaceMat);
+  nozzleFace.position.set(0, 0.18, 7.15);
+  visual.add(nozzleFace);
 
-  // Plume
-  const plumeGeom = new THREE.ConeGeometry(1.3, 7.0, 16, 1, true);
+  // 6. 18-Tooth Folding Petal Nozzle
+  // Teeth fold: fanned out wide when engine-off/braking (fold ~0.42 rad), closed on throttle (fold ~0.06 rad)
+  const petals = [];
+  const petalCount = 18;
+  const petalR = 1.35;
+  const petalZ = 7.18;
+  const petalGeom = new THREE.BoxGeometry(0.24, 0.08, 0.75);
+  // Shift pivot to base of petal
+  petalGeom.translate(0, 0, 0.375);
+
+  const petalGroup = new THREE.Group();
+  petalGroup.name = 'comet_petals';
+  petalGroup.position.set(0, 0.18, petalZ);
+
+  for (let i = 0; i < petalCount; i++) {
+    const angle = (i * Math.PI * 2) / petalCount;
+    const pivot = new THREE.Group();
+    pivot.position.set(Math.cos(angle) * petalR, Math.sin(angle) * petalR, 0);
+    // Orient outward around the circle
+    pivot.rotation.z = angle - Math.PI * 0.5;
+
+    const petalMesh = new THREE.Mesh(petalGeom, mats.dark);
+    pivot.add(petalMesh);
+    petalGroup.add(pivot);
+
+    petals.push(pivot);
+  }
+  visual.add(petalGroup);
+
+  // 7. Internal Rotor Spinner (spins faster with speed/boost)
+  const rotorGroup = new THREE.Group();
+  rotorGroup.position.set(0, 0.18, 7.1);
+  const rotorHub = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.3, 8), mats.dark);
+  rotorHub.rotation.x = Math.PI * 0.5;
+  rotorGroup.add(rotorHub);
+  const bladeGeom = new THREE.BoxGeometry(0.18, 1.05, 0.05);
+  for (let b = 0; b < 6; b++) {
+    const blade = new THREE.Mesh(bladeGeom, mats.dark);
+    blade.rotation.z = (b * Math.PI) / 3;
+    rotorGroup.add(blade);
+  }
+  visual.add(rotorGroup);
+
+  // Glowing Engine Ring
+  const engineGlowRing = new THREE.Mesh(new THREE.TorusGeometry(1.36, 0.08, 6, 24), mats.engineGlow);
+  engineGlowRing.position.set(0, 0.18, 7.16);
+  visual.add(engineGlowRing);
+
+  // 8. Plume
+  const plumeGeom = new THREE.ConeGeometry(1.4, 8.5, 18, 1, true);
   plumeGeom.rotateX(-Math.PI * 0.5);
-  plumeGeom.translate(0, 0, 3.5);
+  plumeGeom.translate(0, 0, 4.25);
   const plumeMat = new THREE.MeshBasicMaterial({
-    color: 0xff7700,
+    color: 0xff8811,
     transparent: true,
     opacity: 0.9,
     blending: THREE.AdditiveBlending,
     depthWrite: false
   });
   const plume = new THREE.Mesh(plumeGeom, plumeMat);
-  plume.position.set(0, 0.1, 7.3);
+  plume.position.set(0, 0.18, 7.2);
   visual.add(plume);
-
-  const canopyPivot = new THREE.Group();
-  canopyPivot.position.set(0, 0.45, 0.5);
 
   return {
     kind: 'rocket',
@@ -321,10 +461,15 @@ export function buildCometR1(mats = null) {
     length,
     bottom,
     canopy: canopyPivot,
-    rotors: [petalRotor],
+    rotors: [rotorGroup],
+    petals,
+    heatExits,
+    nozzleFaces: [nozzleFace],
+    engineGlowMat: mats.engineGlow,
+    engineColorHex: 0xffaa00,
     plumes: [plume],
-    nozzles: [new THREE.Vector3(0, 0.1, 7.3)],
-    tris: 280
+    nozzles: [new THREE.Vector3(0, 0.18, 7.2)],
+    tris: 420
   };
 }
 

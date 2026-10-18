@@ -26,6 +26,19 @@ export const DEFAULT_SETTINGS = {
   volumeEngine: 0.8,
   volumeMusic: 0.65,
   cameraMode: 'chase',
+  colossus: true, // The Broken Giant space scenery
+  deckLight: true, // Ships lit by road deck
+  hullShadows: true, // Ship seam shadows from baked occlusion
+  engineFaces: 'dark', // 'dark' | 'glow'
+  shipPaint: 'gloss', // 'gloss' | 'classic'
+  shipTrim: 'satin', // 'satin' | 'matte'
+  shipAccents: true, // Engine-color accent light strips
+  selectedShip: 'feather', // 'feather' | 'rocket' | 'heavy'
+  waterSpray: true,
+  oceanStorm: true,
+  oceanLightning: true,
+  plankton: true,
+  seaSwells: true,
   // Ice planet switches
   iceSnow: true,
   iceDust: true,
@@ -112,8 +125,8 @@ export class SettingsManager {
 
     if (app.post) {
       app.post.enabled = true;
-      app.post.enableAO = this.data.enableAO !== undefined ? this.data.enableAO : (preset.enableAO && !isLaptop);
-      app.post.enableSSR = this.data.enableSSR !== undefined ? this.data.enableSSR : (preset.enableSSR && !isLaptop);
+      app.post.enableAO = isLaptop ? false : (this.data.enableAO !== undefined ? this.data.enableAO : preset.enableAO);
+      app.post.enableSSR = isLaptop ? false : (this.data.enableSSR !== undefined ? this.data.enableSSR : preset.enableSSR);
       app.post.enableBloom = this.data.enableBloom !== undefined ? this.data.enableBloom : preset.enableBloom;
       app.post.enableLook = this.data.enableLook !== undefined ? this.data.enableLook : preset.enableLook;
     }

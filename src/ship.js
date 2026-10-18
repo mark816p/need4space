@@ -405,6 +405,99 @@ export class Ship {
     };
   }
 
+  setDeckLight(trackFrame, deckColor = 0x222938, settings = null) {
+    if (!this.deckUniforms) {
+      this.deckUniforms = {
+        deckUp: { value: new THREE.Vector3(0, 1, 0) },
+        deckAlbedo: { value: new THREE.Color(deckColor) },
+        deckDirect: { value: 0.8 },
+        deckSky: { value: 0.4 },
+        deckK: { value: 0.6 }
+      };
+    }
+
+    const enabled = !settings || settings.deckLight !== false;
+    if (!enabled || !trackFrame) {
+      this.deckUniforms.deckK.value = 0.0;
+      if (this.deckBounceLight) this.deckBounceLight.intensity = 0.0;
+      return;
+    }
+
+    this.deckUniforms.deckUp.value.copy(trackFrame.U);
+    this.deckUniforms.deckAlbedo.value.set(deckColor);
+
+    // Hover height clearance and bounce factor
+    const distToDeck = this.root.position.distanceTo(trackFrame.pos);
+    const k = clamp(1.0 - (distToDeck - 1.5) * 0.22, 0.15, 1.0);
+    this.deckUniforms.deckK.value = k;
+
+    // Upward-facing underside bounce light attached to ship root
+    if (!this.deckBounceLight) {
+      this.deckBounceLight = new THREE.DirectionalLight(deckColor, 0.8);
+      this.deckBounceLight.position.set(0, -2.5, 0);
+      this.deckBounceLight.target.position.set(0, 0, 0);
+      this.root.add(this.deckBounceLight);
+      this.root.add(this.deckBounceLight.target);
+    }
+    this.deckBounceLight.color.set(deckColor);
+    this.deckBounceLight.intensity = 1.15 * k;
+
+    // Apply finishes: deep-gloss metal-flake paint, dark satin trim, hull seam shadows
+    const shipPaint = settings ? (settings.shipPaint || 'gloss') : 'gloss';
+    const shipTrim = settings ? (settings.shipTrim || 'satin') : 'satin';
+    const engineFaces = settings ? (settings.engineFaces || 'dark') : 'dark';
+    const hullShadows = settings ? (settings.hullShadows !== false) : true;
+
+    this.paintMode = shipPaint;
+    this.trimMode = shipTrim;
+    this.engineFacesMode = engineFaces;
+
+    this.visual.traverse(obj => {
+      if (obj.isMesh && obj.material) {
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        for (const m of mats) {
+          if (m.name === 'ship_body' || m.name === 'ship_livery' || (m.isMeshStandardMaterial && !m.transparent)) {
+            if (shipPaint === 'gloss') {
+              m.roughness = 0.18;
+              m.metalness = 0.38;
+              if (m.clearcoat !== undefined) m.clearcoat = 0.85;
+            } else {
+              m.roughness = 0.35;
+              m.metalness = 0.15;
+            }
+          }
+          if (m.name === 'ship_dark') {
+            m.roughness = (shipTrim === 'satin') ? 0.35 : 0.65;
+            m.metalness = 0.85;
+          }
+          if (hullShadows && m.aoMapIntensity !== undefined) {
+            m.aoMapIntensity = 1.25;
+          }
+        }
+      }
+    });
+
+    // Engine face glow mode vs dark engine face with only outer ring lit
+    if (this.model && this.model.nozzleFaces) {
+      for (const nf of this.model.nozzleFaces) {
+        nf.visible = (engineFaces === 'glow');
+      }
+    }
+
+    // Engine glow rings follow engine power (dark when engines off)
+    if (this.model && this.model.engineGlowMat) {
+      const glowScale = Math.max(0.0, this.power);
+      if (this.model.engineGlowMat.color) {
+        const baseHex = this.model.engineColorHex || 0x00d2ff;
+        if (glowScale < 0.05) {
+          this.model.engineGlowMat.color.setHex(0x050810);
+        } else {
+          this.model.engineGlowMat.color.setHex(baseHex).multiplyScalar(0.4 + glowScale * 0.6);
+        }
+      }
+    }
+  }
+
   update(dt, state = {}, scene = null, camera = null) {
     const throttle = state.throttle ?? 1.0;
     const boost = state.boost ?? false;
@@ -428,6 +521,27 @@ export class Ship {
     this.rotorAngle += spinRate;
     for (let i = 0; i < this.rotors.length; i++) {
       this.rotors[i].rotation.z = this.rotorAngle * (i % 2 === 0 ? 1 : -1);
+    }
+
+    // 3b. 18-tooth Petal Nozzle folding dynamics (fanned out engine-off/braking, closed on throttle)
+    if (this.model && this.model.petals && this.model.petals.length > 0) {
+      const braking = (state.brake && state.brake > 0.05);
+      const isOff = (!this.engineOn || this.power < 0.1);
+      const targetFold = (braking || isOff || throttle <= 0.05) ? 0.42 : 0.06;
+      this.petalFold = damp(this.petalFold !== undefined ? this.petalFold : 0.42, targetFold, 7.0, dt);
+      for (let i = 0; i < this.model.petals.length; i++) {
+        this.model.petals[i].rotation.x = this.petalFold;
+      }
+    }
+
+    // 3c. Side Heat Exits (louvers glow under throttle/boost)
+    if (this.model && this.model.heatExits) {
+      const heatIntensity = (throttle * 0.6 + (boost ? 0.8 : 0)) * this.power;
+      for (const he of this.model.heatExits) {
+        if (he.material) {
+          he.material.opacity = 0.4 + heatIntensity * 0.6;
+        }
+      }
     }
 
     // 4. Exhaust Plumes Dynamics

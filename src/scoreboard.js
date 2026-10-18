@@ -77,7 +77,8 @@ export const CIRCUITS = [
   { id: 'space', name: 'ORBITAL STATION', length: '26.6 KM', color: '#00d2ff' },
   { id: 'forest', name: 'FOREST MOON', length: '13.8 KM', color: '#00ff88' },
   { id: 'ice', name: 'ICE PLANET', length: '14.0 KM', color: '#38bdf8' },
-  { id: 'desert', name: 'DESERT PLANET', length: '14.3 KM', color: '#fb923c' }
+  { id: 'desert', name: 'DESERT PLANET', length: '14.3 KM', color: '#fb923c' },
+  { id: 'ocean', name: 'OCEAN PLANET', length: '15.2 KM', color: '#00e5ff' }
 ];
 
 export const DIFFICULTIES = [

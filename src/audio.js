@@ -197,7 +197,12 @@ export class AudioManager {
     // 2. Bus Gains
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 0.9;
-    this.masterGain.connect(this.limiter);
+
+    this.underwaterFilter = this.ctx.createBiquadFilter();
+    this.underwaterFilter.type = 'lowpass';
+    this.underwaterFilter.frequency.value = 22050;
+    this.masterGain.connect(this.underwaterFilter);
+    this.underwaterFilter.connect(this.limiter);
 
     this.sfxGain = this.ctx.createGain();
     this.sfxGain.gain.value = 0.85;
@@ -422,8 +427,17 @@ export class AudioManager {
     osc2.stop(t + 0.38);
   }
 
+  setUnderwater(underK = 0.0) {
+    if (!this.ctx || !this.underwaterFilter) return;
+    const clamped = Math.max(0.0, Math.min(1.0, underK));
+    const targetFreq = 22000.0 * Math.pow(450.0 / 22000.0, clamped);
+    this.underwaterFilter.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.06);
+  }
+
   update(dt, telemetry) {
     if (!this.isInitialized || !this.engine) return;
     this.engine.update(dt, telemetry);
   }
 }
+
+export { AudioManager as SoundSystem };

@@ -603,12 +603,66 @@ export function buildTrackMeshes(track, scene) {
   root.add(padGroup);
 
   // -------------------------------------------------------------------------
-  // 6. Light Gates on Emitter Pylons
+  // 6. Light Gates on Detailed Emitter Pylons
   // -------------------------------------------------------------------------
   const gateGroup = new THREE.Group();
   gateGroup.name = 'light_gates';
-  const gatePylonGeom = new THREE.BoxGeometry(2.0, 16.0, 3.0);
   const ringGeom = new THREE.TorusGeometry(halfW + 3.0, 0.8, 8, 32, Math.PI);
+
+  // Reusable geometries for detailed emitter pylons
+  const pylonBaseGeom = new THREE.BoxGeometry(4.2, 2.5, 4.6);
+  const pylonColGeom = new THREE.BoxGeometry(2.4, 15.0, 3.2);
+  const pylonConduitGeom = new THREE.CylinderGeometry(0.22, 0.22, 14.5, 8);
+  const pylonHeadGeom = new THREE.BoxGeometry(3.2, 3.2, 3.8);
+  const pylonEmitterRingGeom = new THREE.TorusGeometry(1.2, 0.25, 8, 16);
+  pylonEmitterRingGeom.rotateY(Math.PI * 0.5);
+  const pylonBeaconGeom = new THREE.SphereGeometry(0.35, 8, 8);
+  const beaconMat = new THREE.MeshBasicMaterial({ color: 0xff3322, toneMapped: false });
+
+  function createEmitterPylon(gateColor, isLeft) {
+    const pylon = new THREE.Group();
+    pylon.name = isLeft ? 'emitter_pylon_left' : 'emitter_pylon_right';
+
+    // 1. Heavy Footing anchored to foundation
+    const baseMesh = new THREE.Mesh(pylonBaseGeom, girderMat);
+    baseMesh.position.set(0, 1.25, 0);
+    pylon.add(baseMesh);
+
+    // 2. Main Structural Column
+    const colMesh = new THREE.Mesh(pylonColGeom, girderMat);
+    colMesh.position.set(0, 8.5, 0);
+    pylon.add(colMesh);
+
+    // 3. Twin High-Voltage Conduit Runs
+    const condL = new THREE.Mesh(pylonConduitGeom, hullMat);
+    condL.name = 'pylon_conduit_run';
+    condL.position.set(-0.65, 8.5, 1.3);
+    pylon.add(condL);
+    const condR = new THREE.Mesh(pylonConduitGeom, hullMat);
+    condR.name = 'pylon_conduit_run';
+    condR.position.set(0.65, 8.5, 1.3);
+    pylon.add(condR);
+
+    // 4. Cantilevered Projector Head
+    const headMesh = new THREE.Mesh(pylonHeadGeom, hullMat);
+    headMesh.name = 'pylon_projector_head';
+    headMesh.position.set(isLeft ? 0.6 : -0.6, 16.5, 0);
+    pylon.add(headMesh);
+
+    // 5. Glowing Emitter Ring
+    const emitMat = new THREE.MeshBasicMaterial({ color: gateColor, toneMapped: false });
+    const emitRing = new THREE.Mesh(pylonEmitterRingGeom, emitMat);
+    emitRing.name = 'pylon_emitter_ring';
+    emitRing.position.set(isLeft ? 1.8 : -1.8, 16.5, 0);
+    pylon.add(emitRing);
+
+    // 6. Hazard Warning Strobe
+    const beacon = new THREE.Mesh(pylonBeaconGeom, beaconMat);
+    beacon.position.set(0, 18.3, 0);
+    pylon.add(beacon);
+
+    return pylon;
+  }
 
   for (let g = 0; g < track.gates.length; g++) {
     const gateDef = track.gates[g];
@@ -623,13 +677,13 @@ export function buildTrackMeshes(track, scene) {
       blending: THREE.AdditiveBlending
     });
 
-    // Left and Right emitter pylons
-    const pyLeft = new THREE.Mesh(gatePylonGeom, girderMat);
-    pyLeft.position.set(-halfW - 2.5, 8.0, 0);
+    // Left and Right detailed emitter pylons
+    const pyLeft = createEmitterPylon(gateColor, true);
+    pyLeft.position.set(-halfW - 3.2, 0, 0);
     gate.add(pyLeft);
 
-    const pyRight = new THREE.Mesh(gatePylonGeom, girderMat);
-    pyRight.position.set(halfW + 2.5, 8.0, 0);
+    const pyRight = createEmitterPylon(gateColor, false);
+    pyRight.position.set(halfW + 3.2, 0, 0);
     gate.add(pyRight);
 
     // Glowing energy ring arch

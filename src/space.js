@@ -252,6 +252,9 @@ export class SpaceWorld {
 
     // 5. Procedural Space Ring Station in orbit
     this._initSpaceStation();
+
+    // 6. The Broken Giant Colossus warship hanging over the ringed planet
+    this._initBrokenGiant();
   }
 
   _initSpaceStation() {
@@ -379,6 +382,187 @@ export class SpaceWorld {
     this.sky.add(this.stationGroup);
   }
 
+  _initBrokenGiant() {
+    const colossusDist = 66000;
+    // Positioned hanging dramatically against the ringed planet backdrop
+    const colossusPos = new THREE.Vector3(0.50, 0.38, -0.66).normalize().multiplyScalar(colossusDist);
+
+    this.brokenGiantGroup = new THREE.Group();
+    this.brokenGiantGroup.name = 'broken_giant_colossus';
+    this.brokenGiantGroup.position.copy(colossusPos);
+    this.brokenGiantGroup.lookAt(0, 0, 0);
+    this.brokenGiantGroup.rotateZ(0.42);
+    this.brokenGiantGroup.rotateY(0.25);
+
+    this.colossusGroup = this.brokenGiantGroup; // Alias for settings / API
+    this.brokenDebris = [];
+
+    const armorMat = new THREE.MeshStandardMaterial({
+      color: 0x3a4250,
+      roughness: 0.55,
+      metalness: 0.75
+    });
+    const frameMat = new THREE.MeshStandardMaterial({
+      color: 0x181e26,
+      roughness: 0.65,
+      metalness: 0.85
+    });
+    const interiorMat = new THREE.MeshStandardMaterial({
+      color: 0x242a34,
+      roughness: 0.8,
+      metalness: 0.5
+    });
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0x00e5ff,
+      toneMapped: false
+    });
+    const engineGlowMat = new THREE.MeshBasicMaterial({
+      color: 0x4477ff,
+      toneMapped: false
+    });
+    const strobeMat = new THREE.MeshBasicMaterial({
+      color: 0xff3333,
+      toneMapped: false
+    });
+
+    // 1. Forward Hull Section (Prow & Command Superstructure)
+    this.forwardHull = new THREE.Group();
+    this.forwardHull.name = 'colossus_forward_hull';
+    this.forwardHull.position.set(-820, 360, -480);
+    this.forwardHull.rotation.set(0.08, -0.15, -0.05);
+
+    // Faceted Prow Wedge
+    const prowGeom = new THREE.ConeGeometry(950, 3600, 6);
+    prowGeom.rotateX(Math.PI * 0.5);
+    prowGeom.scale(1.4, 0.65, 1.0);
+    const prowMesh = new THREE.Mesh(prowGeom, armorMat);
+    prowMesh.position.set(0, 0, -1800);
+    this.forwardHull.add(prowMesh);
+
+    // Command Tower
+    const bridgeGeom = new THREE.BoxGeometry(450, 600, 1200);
+    const bridgeMesh = new THREE.Mesh(bridgeGeom, frameMat);
+    bridgeMesh.position.set(0, 480, -800);
+    this.forwardHull.add(bridgeMesh);
+
+    // Glowing Bridge Slits
+    const slitGeom = new THREE.BoxGeometry(460, 45, 800);
+    const slitMesh = new THREE.Mesh(slitGeom, glowMat);
+    slitMesh.position.set(0, 620, -800);
+    this.forwardHull.add(slitMesh);
+
+    // Exposed fracture bulkheads on Forward Hull
+    for (let d = -4; d <= 4; d++) {
+      const bulkheadGeom = new THREE.BoxGeometry(900 - Math.abs(d) * 80, 25, 350);
+      const bulkhead = new THREE.Mesh(bulkheadGeom, interiorMat);
+      bulkhead.position.set(0, d * 75, 40);
+      this.forwardHull.add(bulkhead);
+    }
+    this.brokenGiantGroup.add(this.forwardHull);
+
+    // 2. Aft Engineering Hull Section (Engines & Reactor)
+    this.aftHull = new THREE.Group();
+    this.aftHull.name = 'colossus_aft_hull';
+    this.aftHull.position.set(960, -440, 680);
+    this.aftHull.rotation.set(-0.18, 0.22, 0.12);
+
+    // Engineering hull main body
+    const aftBodyGeom = new THREE.BoxGeometry(1600, 900, 4400);
+    const aftBody = new THREE.Mesh(aftBodyGeom, armorMat);
+    this.aftHull.add(aftBody);
+
+    // 4 Colossal Sub-light Engine Bells
+    const bellGeom = new THREE.CylinderGeometry(280, 420, 850, 18, 1, true);
+    bellGeom.rotateX(Math.PI * 0.5);
+    const bellGlowGeom = new THREE.CircleGeometry(260, 18);
+    const bellOffsets = [
+      [-480, -220], [480, -220],
+      [-480, 220], [480, 220]
+    ];
+    for (const [bx, by] of bellOffsets) {
+      const bell = new THREE.Mesh(bellGeom, frameMat);
+      bell.position.set(bx, by, 2500);
+      this.aftHull.add(bell);
+
+      const bellGlow = new THREE.Mesh(bellGlowGeom, engineGlowMat);
+      bellGlow.position.set(bx, by, 2200);
+      this.aftHull.add(bellGlow);
+    }
+
+    // Radiator Trench Fins
+    for (let i = 0; i < 6; i++) {
+      const finGeom = new THREE.BoxGeometry(35, 650, 500);
+      const finL = new THREE.Mesh(finGeom, frameMat);
+      finL.position.set(-850, 0, -1200 + i * 550);
+      this.aftHull.add(finL);
+      const finR = new THREE.Mesh(finGeom, frameMat);
+      finR.position.set(850, 0, -1200 + i * 550);
+      this.aftHull.add(finR);
+    }
+
+    // Exposed torn framing at fracture
+    for (let k = 0; k < 10; k++) {
+      const tornRib = new THREE.Mesh(new THREE.BoxGeometry(45, 750, 45), frameMat);
+      tornRib.position.set(-650 + k * 140, 0, -2200 + (k % 3) * 60);
+      tornRib.rotation.z = (k - 5) * 0.08;
+      this.aftHull.add(tornRib);
+    }
+    this.brokenGiantGroup.add(this.aftHull);
+
+    // 3. Drifting Wreckage Field between the halves
+    this.debrisGroup = new THREE.Group();
+    this.debrisGroup.name = 'colossus_debris_field';
+
+    const debrisGeoms = [
+      new THREE.BoxGeometry(90, 45, 180),
+      new THREE.BoxGeometry(60, 120, 75),
+      new THREE.BoxGeometry(140, 25, 220),
+      new THREE.CylinderGeometry(15, 15, 320, 6)
+    ];
+
+    for (let i = 0; i < 48; i++) {
+      const g = debrisGeoms[i % debrisGeoms.length];
+      const m = (i % 4 === 0) ? frameMat : armorMat;
+      const mesh = new THREE.Mesh(g, m);
+
+      // Distribute across the fracture gap
+      const t = (i / 48);
+      const px = THREE.MathUtils.lerp(-700, 850, t) + (Math.sin(i * 1.7) * 450);
+      const py = THREE.MathUtils.lerp(250, -350, t) + (Math.cos(i * 2.3) * 350);
+      const pz = THREE.MathUtils.lerp(-300, 550, t) + (Math.sin(i * 3.1) * 600);
+      mesh.position.set(px, py, pz);
+      mesh.rotation.set(Math.sin(i), Math.cos(i), i * 0.5);
+
+      this.debrisGroup.add(mesh);
+      this.brokenDebris.push({
+        mesh,
+        rotSpeed: new THREE.Vector3(
+          (Math.sin(i * 1.1 + 0.5) * 0.25 + 0.05),
+          (Math.cos(i * 1.7) * 0.2 + 0.05),
+          (Math.sin(i * 2.3 + 0.8) * 0.15 + 0.05)
+        )
+      });
+    }
+    this.brokenGiantGroup.add(this.debrisGroup);
+
+    // 4. Hazard beacons on the wreck
+    this.wreckStrobes = [];
+    for (let s = 0; s < 8; s++) {
+      const strobe = new THREE.Mesh(new THREE.SphereGeometry(25, 6, 6), strobeMat);
+      const isFwd = s < 4;
+      if (isFwd) {
+        strobe.position.set((s % 2 === 0 ? -450 : 450), 300, -2200 + s * 600);
+        this.forwardHull.add(strobe);
+      } else {
+        strobe.position.set((s % 2 === 0 ? -800 : 800), 450, -1800 + (s - 4) * 900);
+        this.aftHull.add(strobe);
+      }
+      this.wreckStrobes.push(strobe);
+    }
+
+    this.sky.add(this.brokenGiantGroup);
+  }
+
   follow(targetPos, camera) {
     if (!targetPos) return;
     // Position cascade 1 tight around the ship
@@ -401,6 +585,22 @@ export class SpaceWorld {
       const strobeOn = Math.sin(this.time * 5.5) > 0.3;
       for (let i = 0; i < this.stationStrobes.length; i++) {
         this.stationStrobes[i].visible = strobeOn;
+      }
+    }
+
+    // Animate Broken Giant debris field & emergency strobes
+    if (this.brokenDebris && this.brokenDebris.length > 0) {
+      for (let i = 0; i < this.brokenDebris.length; i++) {
+        const d = this.brokenDebris[i];
+        d.mesh.rotation.x += d.rotSpeed.x * dt;
+        d.mesh.rotation.y += d.rotSpeed.y * dt;
+        d.mesh.rotation.z += d.rotSpeed.z * dt;
+      }
+    }
+    if (this.wreckStrobes && this.wreckStrobes.length > 0) {
+      const strobeState = Math.sin(this.time * 4.0) > 0.4;
+      for (let i = 0; i < this.wreckStrobes.length; i++) {
+        this.wreckStrobes[i].visible = strobeState;
       }
     }
 
@@ -451,6 +651,19 @@ export class SpaceWorld {
     }
   }
 
-  setOptions(settings) {}
+  setOptions(settings) {
+    if (!settings) return;
+    let colossusVal = undefined;
+    if (settings instanceof Map || (settings.has && typeof settings.has === 'function')) {
+      if (settings.has('colossus')) colossusVal = settings.get('colossus');
+    } else if (settings.get && typeof settings.get === 'function') {
+      colossusVal = settings.get('colossus');
+    } else if (settings.colossus !== undefined) {
+      colossusVal = settings.colossus;
+    }
+    if (this.brokenGiantGroup && colossusVal !== undefined) {
+      this.brokenGiantGroup.visible = !!colossusVal;
+    }
+  }
   wetCheck() {}
 }

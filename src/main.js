@@ -8,10 +8,12 @@ import { SpaceWorld } from './space.js';
 import { ForestWorld } from './forestworld.js';
 import { IceWorld } from './iceworld.js';
 import { DesertWorld } from './desertworld.js';
+import { OceanWorld } from './oceanworld.js';
 import { createSpaceTrack, TrackRacer } from './track.js';
 import { createForestTrack } from './foresttrack.js';
 import { createIceTrack } from './icetrack.js';
 import { createDesertTrack } from './deserttrack.js';
+import { createOceanTrack } from './ocean.js';
 import { Ship } from './ship.js';
 import { FreeFlight } from './flight.js';
 import { InputHandler } from './input.js';
@@ -201,7 +203,11 @@ export async function loadCircuit(name = 'space') {
     }
   }
 
-  if (name === 'desert') {
+  if (name === 'ocean') {
+    app.track = createOceanTrack();
+    app.trackMesh = app.track.meshes(app.scene);
+    app.world = new OceanWorld(app.scene, app.renderer, app.camera, app.track);
+  } else if (name === 'desert') {
     app.track = createDesertTrack();
     app.trackMesh = app.track.meshes(app.scene);
     app.world = new DesertWorld(app.scene, app.renderer, app.camera, app.track);
@@ -221,7 +227,7 @@ export async function loadCircuit(name = 'space') {
 
   const diff = app.settings ? app.settings.get('difficulty') : 'hard';
   const airPitch = app.settings ? app.settings.get('airPitch') : true;
-  app.race = new Race(app.track, { difficulty: diff, numLaps: 3, airPitch });
+  app.race = new Race(app.track, { difficulty: diff, numLaps: 3, airPitch, settings: app.settings });
   if (app.world) app.world.race = app.race;
   app.race.attachToScene(app.scene);
   app.playerRacer = app.race.playerRacer;
@@ -306,10 +312,11 @@ async function boot() {
 
   status('Initializing Race & Fleet...', 85);
   await nextFrame();
+  app.settings = new SettingsManager();
   app.input = new InputHandler();
 
   // Create 9-Ship Race (default easy difficulty)
-  app.race = new Race(app.track, { difficulty: 'easy', numLaps: 3, airPitch: true });
+  app.race = new Race(app.track, { difficulty: app.settings.get('difficulty') || 'easy', numLaps: 3, airPitch: true, settings: app.settings });
   app.race.attachToScene(app.scene);
   app.playerRacer = app.race.playerRacer;
   app.ship = app.playerRacer.ship;
@@ -326,7 +333,6 @@ async function boot() {
 
   status('Initializing UI & Subsystems...', 98);
   await nextFrame();
-  app.settings = new SettingsManager();
   app.cameraController = new CameraController(app.camera, {
     fov: app.settings.get('fov'),
     rollFollow: 1.0
@@ -543,10 +549,14 @@ async function boot() {
         lateralG: app.playerRacer ? (app.playerRacer.vx || 0) : 0,
         isBoosting: app.playerRacer ? app.playerRacer.isBoosting : false,
         hitImpulse: (app.playerRacer && app.playerRacer.ship) ? (app.playerRacer.ship.hitIntensity || 0) : 0,
+        waterSpray: (app.world && app.world.waterSpray) ? true : false,
         world: app.world
       };
 
       if (app.audio) {
+        if (app.world && typeof app.world.underK === 'number' && app.audio.setUnderwater) {
+          app.audio.setUnderwater(app.world.underK);
+        }
         app.audio.update(dt, {
           throttle: input.throttle || 0,
           speed: telemetry.speed,

@@ -3,6 +3,44 @@
 
 export const CHANGELOG = [
   {
+    version: '1.4.0',
+    title: 'The Drowned World',
+    date: '2026-10-18',
+    notes: [
+      'Fifth Circuit: The Drowned World (~15.2 km) over a storm-lashed night ocean with a colossal pale moon and dusk red western band',
+      'Gerstner Ocean Swells: 6 analytical wave components in vertex shader, glittering moon glade specular lobe, wave crest foam, and bioluminescent plankton',
+      'Unified air and water optical model (underK) simulating red and green light absorption and deep teal murk',
+      'The Keeper Colossus: 520m deep monumental basalt and verdigris bronze statue holding a lantern high, spiralled with 17m track frame clearance',
+      'Atlantis Sunken City: pale stone architecture that sank whole, Great Gate with burning braziers above sea level, colonnade avenue, 180m sunken great dome, hypostyle hall, and aqueducts',
+      'Refractive water spray lens effect upon surface skimming and sea breach',
+      'Muffled underwater audio lowpass filtering tracking optical depth underK',
+      'Expanded Global Scoreboard: 20 leaderboards across 5 planetary circuits x 4 difficulties'
+    ]
+  },
+  {
+    version: '1.3.0',
+    title: 'The Comet & The Showroom',
+    date: '2026-10-18',
+    notes: [
+      'New Playable Craft: Comet R1 titanium manta lifting body with twin hover sponsons, low faired canopy, and single massive rocket nozzle',
+      '18-Tooth Folding Petal Nozzle: dynamic procedural kinematics folding inward tightly (0.06 rad) under full throttle and fanning outward wide (0.42 rad) on braking and engine-off',
+      '3D Ship Showroom modal: rotating black glass stand, softbox studio highlights, interactive drag-rotation, wheel zoom, and live startup animations',
+      'Technical specification comparison cards with speed, acceleration, grip, turn rate, and dry mass metrics',
+      'Interactive livery palette switcher and ship selection persistence'
+    ]
+  },
+  {
+    version: '1.2.5',
+    title: 'The Broken Giant & Visual Depth',
+    date: '2026-10-18',
+    notes: [
+      'The Broken Giant colossus warship: 12 km dreadnought fractured into two massive drifting halves with torn ribs, command bridge tower, radiator fins, and 48-piece tumbling debris field',
+      'Road deck bounce lighting: dynamic underside and flank illumination tracking clearance height, track up-vector, and circuit deck albedo',
+      'Engine finish customization: deep-gloss metal-flake paint, dark satin trim, engine face modes (dark/glow), engine accent light strips, and power-scaled glow rings',
+      'Engineered light gate emitter pylons: heavy footing bases, structural columns, twin high-voltage conduit runs, cantilevered projector heads, and glowing emitter rings'
+    ]
+  },
+  {
     version: '1.2.0',
     title: 'Graphics Presets & Visual Polish',
     date: '2026-10-18',
