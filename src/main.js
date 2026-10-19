@@ -408,6 +408,22 @@ async function boot() {
   const _fCam = {};
   const _fLook = {};
   const _vCamTarget = new THREE.Vector3();
+  const _vFreeFwd = new THREE.Vector3();
+  const _vFreeUp = new THREE.Vector3();
+  const _telemetry = {
+    speed: 0,
+    lateralG: 0,
+    isBoosting: false,
+    hitImpulse: 0,
+    waterSpray: false,
+    world: null
+  };
+  const _audioState = {
+    throttle: 0,
+    speed: 0,
+    isBoosting: false,
+    inAir: false
+  };
 
   // HUD Elements
   const elRpos = document.getElementById('rpos');
@@ -555,17 +571,20 @@ async function boot() {
       } else if (app.mode === 'free' && app.flight) {
         app.flight.step(dt, input);
 
-        // Chase camera tracking free flight ship
-        const forwardDir = app.flight.vel.length() > 2.0
-          ? app.flight.vel.clone().normalize()
-          : new THREE.Vector3(0, 0, -1).applyQuaternion(app.ship.root.quaternion);
+        // Chase camera tracking free flight ship (zero-allocation)
+        if (app.flight.vel.lengthSq() > 4.0) {
+          _vFreeFwd.copy(app.flight.vel).normalize();
+        } else {
+          _vFreeFwd.set(0, 0, -1).applyQuaternion(app.ship.root.quaternion);
+        }
+        _vFreeUp.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
 
         const chasePos = _vCamTarget.copy(app.ship.root.position)
-          .addScaledVector(forwardDir, -16.0)
-          .addScaledVector(new THREE.Vector3(0, 1, 0).applyQuaternion(app.ship.root.quaternion), 4.5);
+          .addScaledVector(_vFreeFwd, -16.0)
+          .addScaledVector(_vFreeUp, 4.5);
 
         app.camera.position.lerp(chasePos, 0.18);
-        app.camera.up.set(0, 1, 0).applyQuaternion(app.ship.root.quaternion);
+        app.camera.up.copy(_vFreeUp);
         app.camera.lookAt(app.ship.root.position.x, app.ship.root.position.y + 1.2, app.ship.root.position.z);
 
         if (elSpd) elSpd.textContent = Math.round(app.flight.speed * 3.6);
@@ -588,29 +607,27 @@ async function boot() {
         app.world.update(dt, app.camera, shipPos, shipS, app.renderer);
       }
 
-      const telemetry = {
-        speed: app.playerRacer ? app.playerRacer.vs : (app.flight ? app.flight.speed : 0),
-        lateralG: app.playerRacer ? (app.playerRacer.vx || 0) : 0,
-        isBoosting: app.playerRacer ? app.playerRacer.isBoosting : false,
-        hitImpulse: (app.playerRacer && app.playerRacer.ship) ? (app.playerRacer.ship.hitIntensity || 0) : 0,
-        waterSpray: (app.world && app.world.waterSpray) ? true : false,
-        world: app.world
-      };
+      // Zero-allocation per-frame telemetry object
+      _telemetry.speed = app.playerRacer ? app.playerRacer.vs : (app.flight ? app.flight.speed : 0);
+      _telemetry.lateralG = app.playerRacer ? (app.playerRacer.vx || 0) : 0;
+      _telemetry.isBoosting = app.playerRacer ? app.playerRacer.isBoosting : false;
+      _telemetry.hitImpulse = (app.playerRacer && app.playerRacer.ship) ? (app.playerRacer.ship.hitIntensity || 0) : 0;
+      _telemetry.waterSpray = (app.world && app.world.waterSpray) ? true : false;
+      _telemetry.world = app.world;
 
       if (app.audio) {
         if (app.world && typeof app.world.underK === 'number' && app.audio.setUnderwater) {
           app.audio.setUnderwater(app.world.underK);
         }
-        app.audio.update(dt, {
-          throttle: input.throttle || 0,
-          speed: telemetry.speed,
-          isBoosting: telemetry.isBoosting,
-          inAir: app.playerRacer ? app.playerRacer.inAir : false
-        });
+        _audioState.throttle = input.throttle || 0;
+        _audioState.speed = _telemetry.speed;
+        _audioState.isBoosting = _telemetry.isBoosting;
+        _audioState.inAir = app.playerRacer ? app.playerRacer.inAir : false;
+        app.audio.update(dt, _audioState);
       }
 
       if (app.post) {
-        app.post.render(dt, telemetry);
+        app.post.render(dt, _telemetry);
       } else if (app.scene && app.camera) {
         app.renderer.setRenderTarget(null);
         app.renderer.clear();

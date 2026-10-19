@@ -56,6 +56,24 @@ export const PRESETS = {
     engineTrails: 'ribbon',
     derelictLamps: true,
     bloomThreshold: 0.80
+  },
+  ultra: {
+    id: 'ultra',
+    name: 'ULTRA',
+    label: 'Ultra (Cinematic)',
+    laptopMode: false,
+    dpr: 2.0,
+    enableAO: true,
+    enableSSR: true,
+    enableBloom: true,
+    enableLook: true,
+    shadows: true,
+    canyonAO: true,
+    heatShimmer: true,
+    engineHeat: true,
+    engineTrails: 'ribbon',
+    derelictLamps: true,
+    bloomThreshold: 0.75
   }
 };
 
@@ -66,7 +84,23 @@ export const PRESET_KEYS = ['enableAO', 'enableSSR', 'enableBloom', 'enableLook'
 export function detectPreset(settingsData) {
   if (!settingsData) return 'high';
 
-  for (const [id, preset] of Object.entries(PRESETS)) {
+  // 1. If explicit preset tag exists, verify if all its keys match
+  if (settingsData.preset && PRESETS[settingsData.preset]) {
+    const candidate = PRESETS[settingsData.preset];
+    let match = true;
+    for (const key of PRESET_KEYS) {
+      if (settingsData[key] !== undefined && settingsData[key] !== candidate[key]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) return settingsData.preset;
+  }
+
+  // 2. Otherwise match against known presets in precedence order
+  for (const id of ['low', 'balanced', 'high', 'ultra']) {
+    const preset = PRESETS[id];
+    if (!preset) continue;
     let match = true;
     for (const key of PRESET_KEYS) {
       if (settingsData[key] !== undefined && settingsData[key] !== preset[key]) {

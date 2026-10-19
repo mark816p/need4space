@@ -87,16 +87,19 @@ export function createDeckTextures(width = 1024, height = 1024) {
       const microGrit = noise2(u * 256.0, v * 256.0);
       const wornPaint = noise2(u * 16.0, v * 16.0);
 
+      // Carbon weave micro-texture for high-tech composite aerospace appearance
+      const carbonWeave = Math.sin((u * 440.0 + v * 440.0) * Math.PI) * Math.sin((u * 440.0 - v * 440.0) * Math.PI);
+
       // Base carbon-ceramic deck plate
-      let lum = 46 + grit * 28 + microGrit * 10;
-      if (wornPaint > 0.4) lum += 12; // Weathered markings / bleached resin
+      let lum = 46 + grit * 26 + microGrit * 8 + carbonWeave * 4;
+      if (wornPaint > 0.4) lum += 14; // Weathered markings / bleached resin
 
       // Dark rubbered racing lanes
       lum = lum * (1.0 - laneGroove * 0.32);
 
       // Bevelled seams
       if (isSeam) lum *= 0.42;
-      if (isRivet) lum += 35; // Bright metallic rivet head
+      if (isRivet) lum += 42; // Bright metallic rivet head
 
       const idx = (y * width + x) * 4;
 
@@ -106,9 +109,13 @@ export function createDeckTextures(width = 1024, height = 1024) {
       data[idx + 2] = Math.max(20, Math.min(225, lum * 1.14));
       data[idx + 3] = 255;
 
-      // Normal Map (perturbations from pebble grit, bevelled seams, and rivets)
-      let nx = (noise2(u * 128.0 + 1.0, v * 128.0) - noise2(u * 128.0 - 1.0, v * 128.0)) * 40.0;
-      let ny = (noise2(u * 128.0, v * 128.0 + 1.0) - noise2(u * 128.0, v * 128.0 - 1.0)) * 40.0;
+      // Normal Map (perturbations from pebble grit, carbon weave, bevelled seams, and rivets)
+      let nx = (noise2(u * 128.0 + 1.0, v * 128.0) - noise2(u * 128.0 - 1.0, v * 128.0)) * 36.0;
+      let ny = (noise2(u * 128.0, v * 128.0 + 1.0) - noise2(u * 128.0, v * 128.0 - 1.0)) * 36.0;
+
+      // Subtle directional carbon weave normal
+      nx += carbonWeave * 6.0;
+      ny += carbonWeave * 6.0;
 
       if (isTransverseSeam) {
         ny += ((v % 0.25) < 0.125 ? -60 : 60);
@@ -127,9 +134,9 @@ export function createDeckTextures(width = 1024, height = 1024) {
       nData[idx + 3] = 255;
 
       // Roughness (rubbered racing lanes are slick; seams and grit are rougher)
-      let rough = 0.84 - laneGroove * 0.46 + (1.0 - grit) * 0.12;
-      if (isSeam) rough = 0.96;
-      if (isRivet) rough = 0.35; // Specular reflective rivets
+      let rough = 0.78 - laneGroove * 0.52 + (1.0 - grit) * 0.10;
+      if (isSeam) rough = 0.95;
+      if (isRivet) rough = 0.20; // High specular reflective rivets
       rData[idx] = Math.max(0, Math.min(255, rough * 255));
       rData[idx + 1] = rData[idx];
       rData[idx + 2] = rData[idx];
@@ -164,8 +171,8 @@ export function getDeckMaterial() {
     map: tex.diffuse,
     normalMap: tex.normal,
     roughnessMap: tex.roughness,
-    roughness: 0.75,
-    metalness: 0.25,
+    roughness: 0.68,
+    metalness: 0.32,
   });
   return _deckMaterial;
 }

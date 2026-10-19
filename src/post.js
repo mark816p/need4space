@@ -92,15 +92,17 @@ const GTAOShader = {
       float occlusion = 0.0;
       float sampleStep = radius / (max(-p.z, 0.1) * 3.0);
       vec2 texel = 1.0 / resolution;
+      float stepDist = sampleStep * 12.0;
 
       // 8 directions around circle
       const float PI = 3.14159265359;
       for (int i = 0; i < 8; i++) {
         float angle = float(i) * (2.0 * PI / 8.0);
         vec2 dir = vec2(cos(angle), sin(angle));
+        vec2 stepDelta = dir * (stepDist * texel);
 
         for (int j = 1; j <= 3; j++) {
-          vec2 sampleUv = vUv + dir * (float(j) * sampleStep * texel * 12.0);
+          vec2 sampleUv = vUv + stepDelta * float(j);
           vec3 sp = getViewPos(sampleUv);
           vec3 diff = sp - p;
           float d = length(diff);
@@ -242,7 +244,8 @@ const DeckSSRShader = {
       // Filter out surfaces facing away from deck plane
       vec3 viewDir = normalize(p);
       float grazing = 1.0 - max(0.0, -dot(viewDir, normal));
-      float fresnel = pow(grazing, 3.0) * 0.75 + 0.08;
+      // PBR Schlick Fresnel approximation
+      float fresnel = 0.06 + 0.92 * pow(grazing, 4.0);
 
       vec3 rayDir = reflect(viewDir, normal);
       // If ray points towards camera or away from scene, reject
@@ -251,15 +254,16 @@ const DeckSSRShader = {
         return;
       }
 
-      // Linear raymarch: 16 steps
-      vec3 rayPos = p + normal * 0.12;
+      // Blue-noise / hash dither jitter to break ray-step banding
+      float dither = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453);
+      vec3 rayPos = p + normal * 0.12 + rayDir * (stepSize * dither * 0.70);
       vec3 hitPos = rayPos;
       bool hit = false;
       float curStep = stepSize;
 
-      for (int i = 0; i < 16; i++) {
+      for (int i = 0; i < 18; i++) {
         rayPos += rayDir * curStep;
-        curStep *= 1.15; // Geometric progression covers more space distance
+        curStep *= 1.14; // Geometric progression covers space distance smoothly
 
         vec2 sampleUv = getUv(rayPos);
         if (sampleUv.x < 0.0 || sampleUv.x > 1.0 || sampleUv.y < 0.0 || sampleUv.y > 1.0) {
@@ -270,7 +274,7 @@ const DeckSSRShader = {
         float deltaZ = rayPos.z - scenePos.z;
 
         // Check if ray entered behind surface within thickness threshold
-        if (deltaZ < 0.0 && deltaZ > -5.0) {
+        if (deltaZ < 0.0 && deltaZ > -6.5) {
           hit = true;
           hitPos = rayPos;
 
@@ -301,15 +305,16 @@ const DeckSSRShader = {
       // Screen edge vignette falloff for reflections exiting screen
       vec2 edgeDist = min(hitUv, 1.0 - hitUv);
       float edgeAlpha = smoothstep(0.0, edgeFade, min(edgeDist.x, edgeDist.y));
+      float distFade = clamp(1.0 - length(hitPos - p) / maxDistance, 0.0, 1.0);
 
       vec3 reflectCol = texture2D(tColor, hitUv).rgb;
-      gl_FragColor = vec4(reflectCol * fresnel * edgeAlpha, 1.0);
+      gl_FragColor = vec4(reflectCol * fresnel * edgeAlpha * distFade, 1.0);
     }
   `
 };
 
 // -----------------------------------------------------------------------------
-// Shader 4: Bloom Isolation & Blur Pyramids
+// Shader 4: Bloom Isolation & Multi-Level Blur Pyramids
 // -----------------------------------------------------------------------------
 const BloomHighPassShader = {
   uniforms: {
@@ -331,7 +336,13 @@ const BloomHighPassShader = {
     void main() {
       vec3 col = texture2D(tColor, vUv).rgb;
       float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-      float factor = clamp((lum - threshold) / max(threshold, 0.01), 0.0, 1.0);
+      // Soft-knee bloom thresholding to prevent harsh cutoff artifacts
+      float knee = max(0.05, threshold * 0.5);
+      float soft = lum - threshold + knee;
+      soft = clamp(soft, 0.0, 2.0 * knee);
+      soft = soft * soft / (4.0 * knee + 0.0001);
+      float factor = max(soft, lum - threshold) / max(lum, 0.0001);
+      factor = clamp(factor, 0.0, 1.0);
       gl_FragColor = vec4(col * factor, 1.0);
     }
   `
@@ -341,7 +352,8 @@ const GaussianBlurShader = {
   uniforms: {
     tDiffuse: { value: null },
     direction: { value: new THREE.Vector2(1, 0) },
-    resolution: { value: new THREE.Vector2() }
+    resolution: { value: new THREE.Vector2() },
+    spread: { value: 1.0 }
   },
   vertexShader: `
     varying vec2 vUv;
@@ -354,10 +366,11 @@ const GaussianBlurShader = {
     uniform sampler2D tDiffuse;
     uniform vec2 direction;
     uniform vec2 resolution;
+    uniform float spread;
     varying vec2 vUv;
 
     void main() {
-      vec2 texel = direction / resolution;
+      vec2 texel = (direction * spread) / resolution;
       vec3 sum = texture2D(tDiffuse, vUv).rgb * 0.227027;
 
       sum += texture2D(tDiffuse, vUv + texel * 1.3846153846).rgb * 0.3162162162;
@@ -366,6 +379,38 @@ const GaussianBlurShader = {
       sum += texture2D(tDiffuse, vUv - texel * 3.2307692308).rgb * 0.0702702703;
 
       gl_FragColor = vec4(sum, 1.0);
+    }
+  `
+};
+
+// Anamorphic horizontal flare streak for incandescent neon gates, engine plumes & solar corona
+const AnamorphicStreakShader = {
+  uniforms: {
+    tDiffuse: { value: null },
+    resolution: { value: new THREE.Vector2() },
+    stretch: { value: 3.6 }
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = vec4(position.xy, 0.0, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform vec2 resolution;
+    uniform float stretch;
+    varying vec2 vUv;
+
+    void main() {
+      vec2 texel = vec2(stretch / resolution.x, 0.0);
+      vec3 c0 = texture2D(tDiffuse, vUv).rgb * 0.26;
+      vec3 c1 = (texture2D(tDiffuse, vUv + texel * 1.6).rgb + texture2D(tDiffuse, vUv - texel * 1.6).rgb) * 0.22;
+      vec3 c2 = (texture2D(tDiffuse, vUv + texel * 3.8).rgb + texture2D(tDiffuse, vUv - texel * 3.8).rgb) * 0.11;
+      vec3 c3 = (texture2D(tDiffuse, vUv + texel * 6.5).rgb + texture2D(tDiffuse, vUv - texel * 6.5).rgb) * 0.04;
+      vec3 streak = (c0 + c1 + c2 + c3) * vec3(0.85, 1.05, 1.35);
+      gl_FragColor = vec4(streak, 1.0);
     }
   `
 };
@@ -380,6 +425,8 @@ const LookCompositeShader = {
     tAO: { value: null },
     tSSR: { value: null },
     tBloom: { value: null },
+    tBloomWide: { value: null },
+    tBloomStreak: { value: null },
     time: { value: 0 },
     exposure: { value: 1.08 },
     contrast: { value: 1.06 },
@@ -412,6 +459,8 @@ const LookCompositeShader = {
     uniform sampler2D tAO;
     uniform sampler2D tSSR;
     uniform sampler2D tBloom;
+    uniform sampler2D tBloomWide;
+    uniform sampler2D tBloomStreak;
     uniform float time;
     uniform float exposure;
     uniform float contrast;
@@ -479,14 +528,32 @@ const LookCompositeShader = {
         }
       }
 
-      // 1. Chromatic Aberration with radial falloff
+      // 1. Chromatic Aberration with radial falloff + Speed-Scaled Peripheral Radial Blur
       vec3 col;
       if (enableLook > 0.5) {
         float shift = chromaOffset * pow(dist, 1.4);
-        float r = texture2D(tScene, sampleUv + dir * shift).r;
-        float g = texture2D(tScene, sampleUv).g;
-        float b = texture2D(tScene, sampleUv - dir * shift).b;
-        col = vec3(r, g, b);
+
+        // At supersonic velocities (> 650 km/h, speedRatio > 0.60), peripheral radial motion blur
+        // blurs peripheral vision outward while keeping central 60% aiming tunnel crystal clear
+        float radialFactor = smoothstep(0.25, 0.70, dist) * clamp((speedRatio - 0.60) * 2.2, 0.0, 1.0);
+
+        if (radialFactor > 0.01) {
+          float rShift = shift + radialFactor * 0.018;
+          vec3 rCol = texture2D(tScene, sampleUv + dir * (rShift * 1.4)).rgb;
+          vec3 mCol1 = texture2D(tScene, sampleUv + dir * (rShift * 0.7)).rgb;
+          vec3 mCol2 = texture2D(tScene, sampleUv - dir * (rShift * 0.5)).rgb;
+          vec3 bCol = texture2D(tScene, sampleUv - dir * (rShift * 1.2)).rgb;
+
+          float r = rCol.r * 0.45 + mCol1.r * 0.35 + mCol2.r * 0.20;
+          float g = mCol1.g * 0.40 + mCol2.g * 0.40 + texture2D(tScene, sampleUv).g * 0.20;
+          float b = bCol.b * 0.45 + mCol2.b * 0.35 + mCol1.b * 0.20;
+          col = vec3(r, g, b);
+        } else {
+          float r = texture2D(tScene, sampleUv + dir * shift).r;
+          float g = texture2D(tScene, sampleUv).g;
+          float b = texture2D(tScene, sampleUv - dir * shift).b;
+          col = vec3(r, g, b);
+        }
       } else {
         col = texture2D(tScene, sampleUv).rgb;
       }
@@ -506,10 +573,13 @@ const LookCompositeShader = {
         col += ssr;
       }
 
-      // 4. Bloom Composite & Atmospheric Light Shafts
+      // 4. Multi-Level Bloom Composite & Atmospheric Light Shafts
       if (enableBloom > 0.5) {
-        vec3 bloom = texture2D(tBloom, vUv).rgb;
-        col += bloom * bloomStrength;
+        vec3 bTight = texture2D(tBloom, vUv).rgb;
+        vec3 bWide = texture2D(tBloomWide, vUv).rgb;
+        vec3 bStreak = texture2D(tBloomStreak, vUv).rgb;
+        vec3 bloomCombined = bTight * 0.70 + bWide * 0.45 + bStreak * 0.35;
+        col += bloomCombined * bloomStrength;
       }
 
       // Broad light shafts: emerge only from broad light sources, suppressing single-pixel glint artifacts
@@ -619,7 +689,7 @@ export class PostPipeline {
       type: THREE.HalfFloatType
     });
 
-    // 4. Bloom Targets (Quarter-res pyramid)
+    // 4. Bloom Targets: Multi-Level Pyramid
     const bW = Math.max(1, Math.floor(w / 4));
     const bH = Math.max(1, Math.floor(h / 4));
     this.bloomHighPassTarget = new THREE.WebGLRenderTarget(bW, bH, {
@@ -628,6 +698,7 @@ export class PostPipeline {
       format: THREE.RGBAFormat,
       type: THREE.HalfFloatType
     });
+    // Level 1: Tight Bloom (1/4 res)
     this.bloomBlurH = new THREE.WebGLRenderTarget(bW, bH, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
@@ -635,6 +706,30 @@ export class PostPipeline {
       type: THREE.HalfFloatType
     });
     this.bloomBlurV = new THREE.WebGLRenderTarget(bW, bH, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.HalfFloatType
+    });
+
+    // Level 2: Wide Bloom (1/8 res) - soft atmospheric halo
+    const octW = Math.max(1, Math.floor(w / 8));
+    const octH = Math.max(1, Math.floor(h / 8));
+    this.bloomWideH = new THREE.WebGLRenderTarget(octW, octH, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.HalfFloatType
+    });
+    this.bloomWideV = new THREE.WebGLRenderTarget(octW, octH, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat,
+      type: THREE.HalfFloatType
+    });
+
+    // Level 3: Anamorphic Horizontal Flare (1/4 x 1/8 res)
+    this.bloomStreak = new THREE.WebGLRenderTarget(bW, octH, {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
@@ -679,6 +774,14 @@ export class PostPipeline {
       uniforms: THREE.UniformsUtils.clone(GaussianBlurShader.uniforms),
       vertexShader: GaussianBlurShader.vertexShader,
       fragmentShader: GaussianBlurShader.fragmentShader,
+      depthTest: false,
+      depthWrite: false
+    });
+
+    this.matAnamorphicStreak = new THREE.ShaderMaterial({
+      uniforms: THREE.UniformsUtils.clone(AnamorphicStreakShader.uniforms),
+      vertexShader: AnamorphicStreakShader.vertexShader,
+      fragmentShader: AnamorphicStreakShader.fragmentShader,
       depthTest: false,
       depthWrite: false
     });
@@ -731,6 +834,12 @@ export class PostPipeline {
     this.bloomHighPassTarget.setSize(quadW, quadH);
     this.bloomBlurH.setSize(quadW, quadH);
     this.bloomBlurV.setSize(quadW, quadH);
+
+    const octW = Math.max(1, Math.floor(width / 8));
+    const octH = Math.max(1, Math.floor(height / 8));
+    this.bloomWideH.setSize(octW, octH);
+    this.bloomWideV.setSize(octW, octH);
+    this.bloomStreak.setSize(quadW, octH);
   }
 
   getGTAONormalKey(obj) {
@@ -852,24 +961,44 @@ export class PostPipeline {
       this.fsTriangle.render(this.renderer, this.matSSR, this.ssrTarget);
     }
 
-    // 5. Bloom Pass (Quarter-Res)
+    // 5. Multi-Level Bloom Pass (Quarter-Res & Eighth-Res Pyramid + Anamorphic Streak)
     if (this.enableBloom) {
       const uHP = this.matBloomHighPass.uniforms;
       uHP.tColor.value = this.sceneTarget.texture;
       uHP.threshold.value = this.look.params.bloomThreshold;
       this.fsTriangle.render(this.renderer, this.matBloomHighPass, this.bloomHighPassTarget);
 
-      // Horizontal blur
+      // Level 1: Tight Bloom (spread = 1.0)
       const uG = this.matGaussianBlur.uniforms;
       uG.tDiffuse.value = this.bloomHighPassTarget.texture;
       uG.direction.value.set(1.0, 0.0);
       uG.resolution.value.set(this.bloomBlurH.width, this.bloomBlurH.height);
+      uG.spread.value = 1.0;
       this.fsTriangle.render(this.renderer, this.matGaussianBlur, this.bloomBlurH);
 
-      // Vertical blur
       uG.tDiffuse.value = this.bloomBlurH.texture;
       uG.direction.value.set(0.0, 1.0);
+      uG.spread.value = 1.0;
       this.fsTriangle.render(this.renderer, this.matGaussianBlur, this.bloomBlurV);
+
+      // Level 2: Wide Bloom (spread = 2.2 on 1/8 res target for soft atmospheric halo)
+      uG.tDiffuse.value = this.bloomBlurV.texture;
+      uG.direction.value.set(1.0, 0.0);
+      uG.resolution.value.set(this.bloomWideH.width, this.bloomWideH.height);
+      uG.spread.value = 2.2;
+      this.fsTriangle.render(this.renderer, this.matGaussianBlur, this.bloomWideH);
+
+      uG.tDiffuse.value = this.bloomWideH.texture;
+      uG.direction.value.set(0.0, 1.0);
+      uG.spread.value = 2.2;
+      this.fsTriangle.render(this.renderer, this.matGaussianBlur, this.bloomWideV);
+
+      // Level 3: Anamorphic Horizontal Flare Streak
+      const uS = this.matAnamorphicStreak.uniforms;
+      uS.tDiffuse.value = this.bloomBlurV.texture;
+      uS.resolution.value.set(this.bloomStreak.width, this.bloomStreak.height);
+      uS.stretch.value = 3.6;
+      this.fsTriangle.render(this.renderer, this.matAnamorphicStreak, this.bloomStreak);
     }
 
     // Water spray simulation: increases when passing through waterfall, drains under airflow
@@ -885,6 +1014,8 @@ export class PostPipeline {
     uComp.tAO.value = this.aoTarget.texture;
     uComp.tSSR.value = this.ssrTarget.texture;
     uComp.tBloom.value = this.bloomBlurV.texture;
+    uComp.tBloomWide.value = this.bloomWideV.texture;
+    uComp.tBloomStreak.value = this.bloomStreak.texture;
     uComp.time.value += dt;
     uComp.exposure.value = this.look.currentExposure;
     uComp.contrast.value = this.look.params.contrast;
@@ -918,6 +1049,7 @@ export class PostPipeline {
       this.matSSR,
       this.matBloomHighPass,
       this.matGaussianBlur,
+      this.matAnamorphicStreak,
       this.matLookComposite
     ];
     await Promise.all(mats.map(m => {
@@ -941,6 +1073,9 @@ export class PostPipeline {
     this.bloomHighPassTarget.dispose();
     this.bloomBlurH.dispose();
     this.bloomBlurV.dispose();
+    this.bloomWideH.dispose();
+    this.bloomWideV.dispose();
+    this.bloomStreak.dispose();
   }
 }
 

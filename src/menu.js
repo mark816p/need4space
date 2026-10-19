@@ -287,6 +287,7 @@ export class MenuManager {
               <button class="btn-opt ${currentPreset === 'low' ? 'active' : ''}" data-preset="low">LOW</button>
               <button class="btn-opt ${currentPreset === 'balanced' ? 'active' : ''}" data-preset="balanced">BALANCED</button>
               <button class="btn-opt ${currentPreset === 'high' ? 'active' : ''}" data-preset="high">HIGH</button>
+              <button class="btn-opt ${currentPreset === 'ultra' ? 'active' : ''}" data-preset="ultra">ULTRA</button>
               <button class="btn-opt ${currentPreset === 'custom' ? 'active' : ''}" data-preset="custom">CUSTOM</button>
             </div>
           </div>
